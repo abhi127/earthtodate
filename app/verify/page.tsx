@@ -3,10 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MailCheck } from "lucide-react";
 import AuthShell from "@/components/AuthShell";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+
+const SCENE = {
+  view: "s2_swir",
+  label: "Gulf of Gabès",
+  meta: "Sentinel-2 · SWIR false color · 10 m",
+  lat: 34.0,
+  lon: 9.0,
+  zoom: 5,
+};
 
 export default function VerifyPage() {
   const { verify, resend, pendingEmail, devCode, ready } = useAuth();
@@ -81,13 +89,19 @@ export default function VerifyPage() {
 
   return (
     <AuthShell
-      icon={<MailCheck className="h-6 w-6 text-accent" />}
-      title="Verify your email"
+      eyebrow="Verification"
+      title="Check your inbox"
       subtitle={
-        pendingEmail
-          ? `Enter the 6-digit code we sent to ${pendingEmail}.`
-          : "Enter the 6-digit code we sent to your inbox."
+        pendingEmail ? (
+          <>
+            Enter the 6-digit code we sent to{" "}
+            <span className="font-medium text-txt-primary">{pendingEmail}</span>.
+          </>
+        ) : (
+          "Enter the 6-digit code we sent to your inbox."
+        )
       }
+      scene={SCENE}
       footer={
         <Link href="/signup" className="font-semibold text-accent hover:underline">
           Use a different email
@@ -95,7 +109,7 @@ export default function VerifyPage() {
       }
     >
       <form onSubmit={submit} className="space-y-5">
-        <div className="flex justify-center gap-2" onPaste={onPaste}>
+        <div className="flex gap-2" onPaste={onPaste}>
           {digits.map((d, i) => (
             <input
               key={i}
@@ -108,20 +122,25 @@ export default function VerifyPage() {
               inputMode="numeric"
               maxLength={1}
               aria-label={`Digit ${i + 1}`}
-              className="h-14 w-12 rounded-xl border border-line bg-input text-center text-[22px] font-semibold text-txt-primary focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent-subtle"
+              className="mono h-[58px] min-w-0 flex-1 rounded-xl border border-line bg-input text-center text-[22px] font-semibold text-txt-primary transition-colors focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent-subtle"
             />
           ))}
         </div>
 
         {devCode && (
-          <p className="text-center text-[11.5px] text-txt-muted">
-            No email service in this demo — your code is{" "}
-            <span className="mono font-semibold text-accent">{devCode}</span>
-          </p>
+          <div className="flex items-center gap-2 rounded-lg border border-line bg-elevated/50 px-3 py-2">
+            <span className="mono text-[9.5px] uppercase tracking-[0.18em] text-txt-muted">
+              demo code
+            </span>
+            <span className="mono text-[13px] font-semibold tracking-[0.2em] text-accent">
+              {devCode}
+            </span>
+            <span className="text-[11px] text-txt-muted">— no email service in this build</span>
+          </div>
         )}
 
         {error && (
-          <div className="rounded-lg border border-bad/25 bg-bad/10 px-3.5 py-2.5 text-[12.5px] text-bad">
+          <div role="alert" className="rounded-lg border border-bad/25 bg-bad/10 px-3.5 py-2.5 text-[12.5px] text-bad">
             {error}
           </div>
         )}
@@ -129,9 +148,12 @@ export default function VerifyPage() {
         <Button type="submit" size="lg" className="w-full" disabled={!filled || busy}>
           {busy ? "Verifying…" : filled ? "Verify & Continue" : "Enter code"}
         </Button>
-        <div className="text-center text-[12.5px] text-txt-muted">
+
+        <div className="text-[12.5px] text-txt-muted">
           {count > 0 ? (
-            <>Resend code · 0:{String(count).padStart(2, "0")}</>
+            <>
+              Resend code · <span className="mono">0:{String(count).padStart(2, "0")}</span>
+            </>
           ) : (
             <button type="button" onClick={doResend} className="text-accent hover:underline">
               Resend code

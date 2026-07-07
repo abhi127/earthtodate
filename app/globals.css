@@ -80,6 +80,59 @@ body {
   background-size: 28px 28px;
 }
 
+/* ---- auth "downlink" screens ---- */
+
+@keyframes fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal {
+  animation: fadeup 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.reveal-1 { animation-delay: 0.06s; }
+.reveal-2 { animation-delay: 0.12s; }
+.reveal-3 { animation-delay: 0.2s; }
+.reveal-4 { animation-delay: 0.3s; }
+
+@keyframes scanline {
+  0% { top: -4%; }
+  100% { top: 104%; }
+}
+.scanline {
+  animation: scanline 8s linear infinite;
+}
+
+@keyframes drift {
+  from { transform: scale(1.12) translate3d(0, 0, 0); }
+  to { transform: scale(1.12) translate3d(-40px, -28px, 0); }
+}
+.drift {
+  animation: drift 70s linear infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-1,
+  .reveal-2,
+  .reveal-3,
+  .reveal-4 {
+    animation: none;
+  }
+  .scanline {
+    animation: none;
+    display: none;
+  }
+  .drift {
+    animation: none;
+  }
+}
+
 @keyframes marq {
   from {
     transform: translateX(0);

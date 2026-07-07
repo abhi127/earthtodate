@@ -38,6 +38,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
       },
       boxShadow: {
         panel: "0 10px 40px -12px rgba(0,0,0,0.7)",
