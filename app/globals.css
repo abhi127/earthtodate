@@ -17,7 +17,7 @@ body {
 body {
   @apply bg-root text-txt-primary antialiased;
   font-family: var(--font-sans);
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 /* thin custom scrollbars */
@@ -65,6 +65,36 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 11px;
+}
+
+.text-gradient-earth {
+  background: linear-gradient(100deg, #5ee6c0 0%, #31d0aa 45%, #5ab0ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.grid-bg {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+@keyframes marq {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee {
+  animation: marq 26s linear infinite;
+}
+
+.mask-edges {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
 
 /* MapLibre overrides to fit the dark theme */

@@ -1,264 +1,348 @@
-"use client";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Layers,
+  Satellite,
+  Gauge,
+  Wind,
+  Mountain,
+  Eye,
+  Download,
+  Search,
+  MapPin,
+  Check,
+  ChevronDown,
+} from "lucide-react";
+import PublicNav from "@/components/PublicNav";
+import Footer from "@/components/Footer";
+import { Button, Card, Eyebrow, Pill, StatusPing } from "@/components/ui";
 
-import { useCallback, useMemo, useState } from "react";
-import MapCanvas, { type MapMarker } from "@/components/MapCanvas";
-import LayerCatalog from "@/components/LayerCatalog";
-import ToolDock, { type Tool, type InspectData } from "@/components/ToolDock";
-import Legend from "@/components/Legend";
-import { familyForView } from "@/lib/views";
+const CAPABILITIES = [
+  "Sentinel-2 · 10m",
+  "Super-resolution · 50cm",
+  "NDVI & 40+ indices",
+  "Sentinel-1 SAR",
+  "PlanetScope · 3m",
+  "VIIRS night lights",
+  "Soil salinity",
+  "Grassland biomass",
+  "Elevation · 1m DEM",
+  "Air quality",
+  "Flood simulation",
+  "Change detection",
+];
 
-export default function Page() {
-  const [activeView, setActiveView] = useState("s2_tci");
-  const [opacity, setOpacity] = useState(1);
-  const [pollutionOn, setPollutionOn] = useState(false);
+const FEATURES = [
+  {
+    icon: Layers,
+    tag: "200+ views",
+    title: "Every layer, one map",
+    body: "Sentinel-2, Landsat, PlanetScope, SAR and night lights — plus true-color, false-color band combos and 40+ spectral indices, all switchable instantly.",
+  },
+  {
+    icon: Gauge,
+    tag: "up to 50cm",
+    title: "Super-resolved imagery",
+    body: "Reconstructed 2m, super-resolved 50cm and refined-reality products bring detail far beyond native sensor resolution.",
+  },
+  {
+    icon: Wind,
+    tag: "analytics",
+    title: "Beyond pixels",
+    body: "Read elevation, air quality, soil moisture and salinity at any point. Trace a sightline, define an AOI, export imagery or a shapefile.",
+  },
+];
 
-  const [date, setDate] = useState("2026-07-07");
-  const [daysBack, setDaysBack] = useState(90);
-  const [maxClouds, setMaxClouds] = useState(30);
+const STEPS = [
+  { n: "01", icon: Search, title: "Find a place", body: "Search or pan the globe to your area of interest." },
+  { n: "02", icon: Layers, title: "Pick a layer", body: "Choose a sensor and visualization from 200+ views." },
+  { n: "03", icon: Eye, title: "Inspect", body: "Click to read elevation, air quality and indices." },
+  { n: "04", icon: Download, title: "Export", body: "Download AOI imagery or a shapefile for your GIS." },
+];
 
-  const [tool, setTool] = useState<Tool>("inspect");
-  const [center, setCenter] = useState({ lat: 30, lon: 8, zoom: 3.2 });
+const TIERS = [
+  {
+    name: "Free",
+    price: "$0",
+    credits: "3 credits",
+    desc: "For trying things out.",
+    features: ["Sentinel-2 true color", "Basic indices (NDVI, NDWI)", "Point inspect", "Community support"],
+    cta: "Start free",
+    popular: false,
+  },
+  {
+    name: "Pro",
+    price: "$49",
+    credits: "50 credits",
+    desc: "For working analysts.",
+    features: ["All Sentinel-2 + Landsat", "40+ spectral indices", "SAR & night lights", "AOI & shapefile export", "Sightline & DEM tools"],
+    cta: "Go Pro",
+    popular: true,
+  },
+  {
+    name: "Enterprise",
+    price: "$149",
+    credits: "200 credits",
+    desc: "For teams & orgs.",
+    features: ["Super-resolution 50cm", "Analytics (salinity, biomass)", "Mineral maps (gated)", "Admin console & seats", "Priority support"],
+    cta: "Contact sales",
+    popular: false,
+  },
+];
 
-  const [inspectPoint, setInspectPoint] = useState<{ lat: number; lon: number } | null>(null);
-  const [inspectData, setInspectData] = useState<InspectData | null>(null);
-  const [inspectLoading, setInspectLoading] = useState(false);
+const FAQS = [
+  ["Is this using real satellite data?", "This standalone build generates synthetic imagery on the server so it runs with no credentials. Point the API layer at the real Earth to Date base URL to go live."],
+  ["Which sensors are supported?", "Sentinel-2 (10m down to 50cm super-res), Landsat, PlanetScope, Sentinel-1 SAR, and VIIRS night lights — plus derived analytics products."],
+  ["What can I measure?", "Elevation from the 1m DEM, air quality, 40+ spectral indices, line-of-sight visibility, and areas of interest you can export."],
+  ["Do I need GIS software?", "No — everything runs in the browser. Exports (PNG imagery and GeoJSON) drop straight into QGIS, ArcGIS or your own pipeline."],
+];
 
-  const [losPts, setLosPts] = useState<[number, number][]>([]);
-  const [aoiPts, setAoiPts] = useState<[number, number][]>([]);
-
-  const [flyTo, setFlyTo] = useState<{ lat: number; lon: number; zoom: number; nonce: number } | null>(null);
-  const [search, setSearch] = useState("");
-  const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
-
-  const family = useMemo(() => familyForView(activeView), [activeView]);
-
-  const aoiBbox = useMemo<[number, number, number, number] | null>(() => {
-    if (aoiPts.length < 2) return null;
-    const [a, b] = aoiPts;
-    return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
-  }, [aoiPts]);
-
-  const losLine = useMemo<[number, number][] | null>(
-    () => (losPts.length === 2 ? losPts : null),
-    [losPts]
-  );
-
-  const markers = useMemo<MapMarker[]>(() => {
-    const m: MapMarker[] = [];
-    if (inspectPoint) m.push({ id: "insp", lat: inspectPoint.lat, lon: inspectPoint.lon, kind: "inspect" });
-    losPts.forEach((p, i) => m.push({ id: `los${i}`, lat: p[0], lon: p[1], kind: "los", label: `P${i + 1}` }));
-    aoiPts.forEach((p, i) => m.push({ id: `aoi${i}`, lat: p[0], lon: p[1], kind: "aoi" }));
-    return m;
-  }, [inspectPoint, losPts, aoiPts]);
-
-  const runInspect = useCallback(async (lat: number, lon: number) => {
-    setInspectPoint({ lat, lon });
-    setInspectLoading(true);
-    try {
-      const ll = `${lat.toFixed(5)},${lon.toFixed(5)}`;
-      const [dem, pollution, geocode] = await Promise.all([
-        fetch(`/api/dem_at_lat_lon?lat_lon=${ll}`).then((r) => r.json()),
-        fetch(`/api/pollution_value?lat_lon=${ll}`).then((r) => r.json()),
-        fetch(`/api/pollution_geocode?lat_lon=${ll}`).then((r) => r.json()),
-      ]);
-      setInspectData({ dem, pollution, geocode });
-    } finally {
-      setInspectLoading(false);
-    }
-  }, []);
-
-  const onMapClick = useCallback(
-    (lat: number, lon: number) => {
-      if (tool === "los") {
-        setLosPts((p) => (p.length >= 2 ? [[lat, lon]] : [...p, [lat, lon]]));
-      } else if (tool === "aoi") {
-        setAoiPts((p) => (p.length >= 2 ? [[lat, lon]] : [...p, [lat, lon]]));
-      } else {
-        setTool("inspect");
-        runInspect(lat, lon);
-      }
-    },
-    [tool, runInspect]
-  );
-
-  async function doSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!search.trim()) return;
-    const r = await fetch(`/api/pollution_geocode?q=${encodeURIComponent(search)}`);
-    const j = await r.json();
-    if (typeof j.lat === "number") {
-      setFlyTo({ lat: j.lat, lon: j.lon, zoom: 8, nonce: Date.now() });
-      setTool("inspect");
-      runInspect(j.lat, j.lon);
-    }
-  }
-
+export default function Landing() {
   return (
-    <main className="relative h-screen w-screen overflow-hidden">
-      <MapCanvas
-        view={activeView}
-        opacity={opacity}
-        pollutionOn={pollutionOn}
-        markers={markers}
-        aoi={aoiBbox}
-        losLine={losLine}
-        flyTo={flyTo}
-        onClick={onMapClick}
-        onMove={(lat, lon, zoom) => setCenter({ lat, lon, zoom })}
-      />
+    <>
+      <PublicNav />
 
-      {/* Top bar */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 p-3">
-        <div className="glass pointer-events-auto flex items-center gap-2.5 rounded-xl border border-line px-3.5 py-2.5 shadow-panel">
-          <Logo />
-          <div className="leading-tight">
-            <div className="text-[14px] font-bold tracking-tight">Earth to Date</div>
-            <div className="mono text-[9px] text-txt-muted">v3.1.0 · satellite imagery</div>
+      {/* Hero */}
+      <section className="relative overflow-hidden px-5 pt-32 pb-20">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/2 top-[-10%] h-[560px] w-[900px] -translate-x-1/2 rounded-full bg-accent/10 blur-[140px]" />
+        </div>
+        <div className="relative mx-auto max-w-6xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-elevated/60 px-3 py-1.5">
+              <StatusPing />
+              <span className="mono text-[11px] text-txt-secondary">Trusted by field teams worldwide</span>
+            </div>
+            <h1 className="text-4xl font-bold leading-[1.08] tracking-tight sm:text-[52px]">
+              See the planet, <span className="text-gradient-earth">up to date</span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-xl text-[16px] leading-relaxed text-txt-secondary">
+              Satellite imagery for everyone. Browse Sentinel, Landsat, PlanetScope, SAR and night
+              lights, run spectral indices and analytics, and export what you need — all from one
+              fast map.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Button href="/workspace" size="lg">
+                Open the map <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button href="/signup" variant="ghost" size="lg">
+                Create account
+              </Button>
+            </div>
+          </div>
+
+          {/* live tile preview window */}
+          <HeroWindow />
+        </div>
+      </section>
+
+      {/* capabilities marquee */}
+      <section id="layers" className="border-y border-line bg-surface/60 py-5">
+        <div className="mask-edges overflow-hidden">
+          <div className="marquee flex w-max gap-3">
+            {[...CAPABILITIES, ...CAPABILITIES].map((c, i) => (
+              <span
+                key={i}
+                className="whitespace-nowrap rounded-full border border-line bg-elevated px-4 py-1.5 mono text-[12px] text-txt-secondary"
+              >
+                {c}
+              </span>
+            ))}
           </div>
         </div>
+      </section>
 
-        <form onSubmit={doSearch} className="glass pointer-events-auto flex items-center gap-2 rounded-xl border border-line px-3 py-2 shadow-panel">
-          <span className="text-txt-muted text-[13px]">⌕</span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search a place…"
-            className="w-44 bg-transparent text-[13px] text-txt-primary placeholder:text-txt-muted focus:outline-none"
-          />
-        </form>
+      {/* features */}
+      <section className="mx-auto max-w-6xl px-5 py-24">
+        <div className="mb-14 text-center">
+          <Eyebrow>Capabilities</Eyebrow>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-[38px]">
+            One workspace for the whole spectrum
+          </h2>
+        </div>
+        <div className="grid gap-5 md:grid-cols-3">
+          {FEATURES.map((f) => (
+            <Card key={f.title} hover className="p-6">
+              <div className="mb-4 flex items-start justify-between">
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-accent-muted">
+                  <f.icon className="h-5 w-5 text-accent" />
+                </div>
+                <Pill tone="accent">{f.tag}</Pill>
+              </div>
+              <h3 className="text-[19px] font-semibold">{f.title}</h3>
+              <p className="mt-2 text-[14px] leading-relaxed text-txt-secondary">{f.body}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
 
-        <div className="flex-1" />
+      {/* how it works */}
+      <section id="how" className="border-y border-line bg-surface/40">
+        <div className="mx-auto max-w-6xl px-5 py-24">
+          <div className="mb-14 text-center">
+            <Eyebrow>How it works</Eyebrow>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-[38px]">
+              From orbit to answer in four steps
+            </h2>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((s) => (
+              <Card key={s.n} className="relative overflow-hidden p-6">
+                <span className="absolute right-3 top-1 text-[52px] font-bold text-white/[0.03]">
+                  {s.n}
+                </span>
+                <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-accent-muted">
+                  <s.icon className="h-5 w-5 text-accent" />
+                </div>
+                <h3 className="text-[16px] font-semibold">{s.title}</h3>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed text-txt-secondary">{s.body}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
 
-        <div className="glass pointer-events-auto hidden items-center gap-4 rounded-xl border border-line px-3.5 py-2.5 shadow-panel md:flex">
-          <Stat label="lat" value={center.lat.toFixed(3)} />
-          <Stat label="lon" value={center.lon.toFixed(3)} />
-          <Stat label="zoom" value={center.zoom.toFixed(1)} />
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-ok opacity-60 animate-ping2" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-ok" />
-            </span>
-            <span className="mono text-[10px] text-txt-muted">mock live</span>
+      {/* pricing */}
+      <section id="pricing" className="mx-auto max-w-6xl px-5 py-24">
+        <div className="mb-14 text-center">
+          <Eyebrow>Pricing</Eyebrow>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-[38px]">
+            Simple, credit-based plans
+          </h2>
+        </div>
+        <div className="grid gap-5 md:grid-cols-3">
+          {TIERS.map((t) => (
+            <Card
+              key={t.name}
+              className={`relative p-6 ${
+                t.popular ? "border-accent/40 shadow-glow" : ""
+              }`}
+            >
+              {t.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Pill tone="accent">Most popular</Pill>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <h3 className="text-[18px] font-semibold">{t.name}</h3>
+                <Pill>{t.credits}</Pill>
+              </div>
+              <div className="mt-3 flex items-end gap-1">
+                <span className="text-4xl font-bold">{t.price}</span>
+                <span className="mb-1 text-[13px] text-txt-muted">/mo</span>
+              </div>
+              <p className="mt-1 text-[13px] text-txt-secondary">{t.desc}</p>
+              <ul className="mt-5 space-y-2.5">
+                {t.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-[13.5px] text-txt-secondary">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                href="/signup"
+                variant={t.popular ? "accent" : "ghost"}
+                className="mt-6 w-full"
+              >
+                {t.cta}
+              </Button>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* faq */}
+      <section id="faq" className="mx-auto max-w-3xl px-5 pb-24">
+        <div className="mb-12 text-center">
+          <Eyebrow>FAQ</Eyebrow>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-[38px]">Good to know</h2>
+        </div>
+        <div className="space-y-3">
+          {FAQS.map(([q, a], i) => (
+            <details
+              key={i}
+              open={i === 0}
+              className="group rounded-xl border border-line bg-card px-5 py-4"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between text-[15px] font-medium">
+                {q}
+                <ChevronDown className="h-4 w-4 text-txt-muted transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="mt-3 text-[14px] leading-relaxed text-txt-secondary">{a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* cta band */}
+      <section className="px-5 pb-24">
+        <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-accent/30 bg-gradient-to-br from-accent-muted to-transparent p-12 text-center shadow-glow">
+          <Satellite className="mx-auto mb-4 h-8 w-8 text-accent" />
+          <h2 className="text-3xl font-bold tracking-tight">Start exploring in seconds</h2>
+          <p className="mx-auto mt-3 max-w-md text-[15px] text-txt-secondary">
+            No setup, no credentials. Jump straight into the map or create an account to save your
+            work.
+          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <Button href="/workspace" size="lg">
+              Open the map <ArrowRight className="h-4 w-4" />
+            </Button>
+            <Button href="/signup" variant="ghost" size="lg">
+              Create account
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+    </>
+  );
+}
+
+function HeroWindow() {
+  // build a small live map preview from real generated tiles
+  const z = 4;
+  const cols = [6, 7, 8, 9];
+  const rows = [5, 6, 7];
+  return (
+    <div className="mx-auto mt-14 max-w-4xl overflow-hidden rounded-2xl border border-line bg-card shadow-panel">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
+        <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+        <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
+        <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+        <div className="ml-3 flex items-center gap-1.5 rounded-md bg-input px-2.5 py-1">
+          <MapPin className="h-3 w-3 text-txt-muted" />
+          <span className="mono text-[11px] text-txt-muted">earthtodate.com/workspace</span>
+        </div>
+      </div>
+      <div className="relative">
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${cols.length}, 1fr)` }}>
+          {rows.map((y) =>
+            cols.map((x) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${x}-${y}`}
+                src={`/api/v2/s2_tci/${z}/${x}/${y}`}
+                alt=""
+                className="block aspect-square w-full"
+              />
+            ))
+          )}
+        </div>
+        {/* floating layer chips */}
+        <div className="absolute left-4 top-4 flex flex-col gap-2">
+          <span className="rounded-lg border border-accent/30 bg-accent-muted px-2.5 py-1 mono text-[11px] text-accent">
+            s2_tci · 10m
+          </span>
+          <span className="rounded-lg border border-line bg-card/80 px-2.5 py-1 mono text-[11px] text-txt-secondary backdrop-blur">
+            + s2_ndvi
           </span>
         </div>
-      </header>
-
-      {/* Left: layer catalog */}
-      <aside
-        className={`glass absolute left-3 top-[72px] bottom-3 z-10 w-[320px] rounded-2xl border border-line shadow-panel transition-transform duration-300 ${
-          leftOpen ? "translate-x-0" : "-translate-x-[336px]"
-        }`}
-      >
-        <LayerCatalog
-          active={activeView}
-          onSelect={setActiveView}
-          opacity={opacity}
-          onOpacity={setOpacity}
-          pollutionOn={pollutionOn}
-          onPollution={setPollutionOn}
-        />
-      </aside>
-      <PanelToggle open={leftOpen} onClick={() => setLeftOpen((v) => !v)} side="left" />
-
-      {/* Right: tools */}
-      <aside
-        className={`glass absolute right-3 top-[72px] bottom-3 z-10 w-[320px] rounded-2xl border border-line shadow-panel transition-transform duration-300 ${
-          rightOpen ? "translate-x-0" : "translate-x-[336px]"
-        }`}
-      >
-        <ToolDock
-          tool={tool}
-          setTool={setTool}
-          activeView={activeView}
-          center={center}
-          date={date}
-          setDate={setDate}
-          daysBack={daysBack}
-          setDaysBack={setDaysBack}
-          maxClouds={maxClouds}
-          setMaxClouds={setMaxClouds}
-          inspectPoint={inspectPoint}
-          inspectData={inspectData}
-          inspectLoading={inspectLoading}
-          losPts={losPts}
-          clearLos={() => setLosPts([])}
-          aoiBbox={aoiBbox}
-          clearAoi={() => setAoiPts([])}
-        />
-      </aside>
-      <PanelToggle open={rightOpen} onClick={() => setRightOpen((v) => !v)} side="right" />
-
-      {/* Bottom-left legend + mode hint */}
-      <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-        {tool === "los" && (
-          <ModeHint>Sightline mode · click two points on the map</ModeHint>
-        )}
-        {tool === "aoi" && (
-          <ModeHint>AOI mode · click two corners on the map</ModeHint>
-        )}
+        <div className="absolute bottom-4 right-4 rounded-lg border border-line bg-card/85 px-3 py-1.5 mono text-[11px] text-txt-secondary backdrop-blur">
+          48.85, 2.35 · z4
+        </div>
       </div>
-      <div className={`absolute bottom-4 z-10 ${rightOpen ? "right-[344px]" : "right-4"} transition-all`}>
-        <Legend family={family} view={activeView} />
-      </div>
-    </main>
-  );
-}
-
-function Logo() {
-  return (
-    <div className="grid h-9 w-9 place-items-center rounded-lg bg-accent-muted">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="9" stroke="#31d0aa" strokeWidth="1.6" />
-        <path d="M3 12a9 9 0 0 1 18 0" stroke="#31d0aa" strokeWidth="1.6" opacity="0.5" />
-        <ellipse cx="12" cy="12" rx="9" ry="3.6" stroke="#31d0aa" strokeWidth="1.4" />
-        <circle cx="12" cy="12" r="2" fill="#31d0aa" />
-      </svg>
     </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-center">
-      <div className="mono text-[8px] uppercase tracking-widest text-txt-subtle">{label}</div>
-      <div className="mono text-[12px] text-txt-secondary">{value}</div>
-    </div>
-  );
-}
-
-function ModeHint({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="glass animate-fadein rounded-full border border-accent/30 px-4 py-2 text-[12px] text-accent shadow-panel">
-      {children}
-    </div>
-  );
-}
-
-function PanelToggle({
-  open,
-  onClick,
-  side,
-}: {
-  open: boolean;
-  onClick: () => void;
-  side: "left" | "right";
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`glass absolute top-1/2 z-20 grid h-10 w-6 -translate-y-1/2 place-items-center rounded-md border border-line text-txt-muted shadow-panel transition-all hover:text-txt-primary ${
-        side === "left"
-          ? open
-            ? "left-[332px]"
-            : "left-3"
-          : open
-          ? "right-[332px]"
-          : "right-3"
-      }`}
-      aria-label={`toggle ${side} panel`}
-    >
-      {side === "left" ? (open ? "‹" : "›") : open ? "›" : "‹"}
-    </button>
   );
 }

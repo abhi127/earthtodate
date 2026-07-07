@@ -15,6 +15,7 @@ const config: Config = {
         elevated: "#10151d",
         card: "#141a24",
         cardhover: "#1a212d",
+        input: "#0d121a",
         line: "rgba(255,255,255,0.08)",
         line2: "rgba(255,255,255,0.12)",
         accent: {
