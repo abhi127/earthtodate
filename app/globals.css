@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+:root {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-root text-txt-primary antialiased;
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+/* thin custom scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.glass {
+  background: rgba(10, 14, 20, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-lg bg-elevated border border-line px-2.5 py-1.5 text-[12px] text-txt-primary focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent-subtle;
+    color-scheme: dark;
+  }
+  .btn-accent {
+    @apply rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-root transition-all hover:bg-accent-hover active:scale-[0.98] shadow-glow;
+  }
+  .btn-ghost {
+    @apply rounded-lg border border-line bg-elevated px-3 py-2 text-[12.5px] font-medium text-txt-secondary transition-colors hover:bg-cardhover hover:text-txt-primary active:scale-[0.98];
+  }
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 11px;
+}
+
+/* MapLibre overrides to fit the dark theme */
+.maplibregl-ctrl-attrib {
+  background: rgba(10, 14, 20, 0.7) !important;
+  color: #5f6d7a !important;
+  font-size: 10px !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: #9aa7b4 !important;
+}
+.maplibregl-ctrl-group {
+  background: rgba(20, 26, 36, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(1) opacity(0.7);
+}
+.maplibregl-popup-content {
+  background: #141a24 !important;
+  color: #f2f5f7 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 40px -12px rgba(0, 0, 0, 0.8) !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+}
+.maplibregl-popup-tip {
+  border-top-color: #141a24 !important;
+  border-bottom-color: #141a24 !important;
+}
