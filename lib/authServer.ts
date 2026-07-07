@@ -71,7 +71,10 @@ export function sessionCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    // This standalone demo is served over plain http (localhost), where a
+    // Secure cookie is silently dropped by Safari. Set AUTH_COOKIE_SECURE=1
+    // when deploying behind HTTPS.
+    secure: process.env.AUTH_COOKIE_SECURE === "1",
     path: "/",
     maxAge: MAX_AGE,
   };
