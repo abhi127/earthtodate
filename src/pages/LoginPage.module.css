@@ -1,0 +1,72 @@
+.page {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.brandSide {
+  flex: 1;
+  background:
+    radial-gradient(ellipse 60% 50% at 80% 30%, rgba(99,102,241,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 20% 70%, rgba(139,92,246,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 60% at 60% 80%, rgba(34,197,94,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 30% at 40% 20%, rgba(59,130,246,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(168,85,247,0.05) 0%, transparent 60%),
+    #07080f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle grid overlay on brand side */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+/* Green glow */
+.glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34,197,94,0.03) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.formSide {
+  flex: 1;
+  background: #F5F6F8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+@media (max-width: 640px) {
+  .page { flex-direction: column; }
+  .brandSide { min-height: 30vh; padding: 2rem; }
+  .formSide { padding: 2rem; }
+  .glow { width: 300px; height: 300px; }
+}
+

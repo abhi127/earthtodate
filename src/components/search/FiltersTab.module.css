@@ -1,0 +1,105 @@
+.tab {
+  padding: 0.75rem 1rem;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--textMuted, #94A3B8);
+  margin-bottom: 0.3rem;
+}
+
+.dateRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dateInput {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border, #334155);
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  background: var(--surface, #1E293B);
+  color: var(--text, #F8FAFC);
+  outline: none;
+  color-scheme: dark;
+}
+
+.dateInput:focus {
+  border-color: var(--primary, #22C55E);
+}
+
+.select {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border, #334155);
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  background: var(--surface, #1E293B);
+  color: var(--text, #F8FAFC);
+  outline: none;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--primary, #22C55E);
+}
+
+.sensorRow {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border, #334155);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--textMuted, #94A3B8);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chip:has(input:checked) {
+  background: rgba(34,197,94,0.1);
+  border-color: var(--primary, #22C55E);
+  color: var(--primary, #22C55E);
+}
+
+.chip input {
+  display: none;
+}
+
+.searchBtn {
+  width: 100%;
+  padding: 0.55rem;
+  margin-top: 0.5rem;
+  background: var(--primary, #22C55E);
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: background 0.2s;
+}
+
+.searchBtn:hover {
+  background: var(--primaryLight, #4ADE80);
+}

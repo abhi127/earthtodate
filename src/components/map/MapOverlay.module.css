@@ -1,0 +1,41 @@
+.overlay {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--surface, #1E293B);
+  border: 1px solid var(--border, #334155);
+  border-radius: 0.375rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.coords {
+  font-size: 0.72rem;
+  color: var(--text, #F8FAFC);
+  font-variant-numeric: tabular-nums;
+  min-width: 16em;
+  display: inline-flex;
+  align-items: center;
+}
+
+.gap {
+  display: inline-block;
+  width: 1.25em;
+}
+
+.text {
+  font-size: 0.72rem;
+  color: var(--text, #F8FAFC);
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  font-size: 0.65rem;
+  color: var(--textMuted, #94A3B8);
+  opacity: 0.6;
+}

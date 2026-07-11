@@ -1,0 +1,84 @@
+.bar {
+  height: var(--topbar-height, 60px);
+  background: var(--bg, #0F172A);
+  border-bottom: 1px solid var(--border, #334155);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  flex-shrink: 0;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hamburger {
+  background: none;
+  border: none;
+  color: var(--textMuted, #94A3B8);
+  cursor: pointer;
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.hamburger:hover {
+  background: var(--surfaceAlt, #334155);
+  color: var(--text, #F8FAFC);
+}
+
+.logoIcon {
+  flex-shrink: 0;
+}
+
+.brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text, #F8FAFC);
+  letter-spacing: 0.03em;
+  margin-right: 0.5rem;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--primary, #22C55E);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: default;
+}
+
+.logoutBtn {
+  background: none;
+  border: 1px solid var(--border, #334155);
+  color: var(--textMuted, #94A3B8);
+  cursor: pointer;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.logoutBtn:hover {
+  background: var(--surface, #1E293B);
+  color: var(--text, #F8FAFC);
+  border-color: var(--textMuted, #94A3B8);
+}
