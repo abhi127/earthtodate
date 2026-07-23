@@ -1,0 +1,1068 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Earth to Date API",
+    "description": "Satellite imagery API with clean subprocess architecture.\n\n## View names (the `view` path parameter)\n\nShared across every endpoint that takes `view` (`/v2/download_aoi`, `/download_shapefile`, tile endpoints, …).\n\n### Sentinel-2 sensors (grammar: `{sensor}_{suffix}`)\n\n`suffix` is either `tci` (true-color RGB) or a band visualization / spectral index — see the two lists below.\n\n| Sensor   | Resolution | Notes                                       |\n|----------|------------|---------------------------------------------|\n| `s2`     | 10m        | Sentinel-2 native L2A                       |\n| `s2r2m`  | 2m         | Reconstructed (fused + deterministic 2× upscale) |\n| `sr`     | 50cm       | Super-resolution                            |\n| `s2dr`   | 2m         | Derived-Resolution (spectral only)          |\n| `s2rr`   | 1m         | Refined Reality (visual only)               |\n| `s2r5m`  | 5m         | Derived 5m                                  |\n\nExamples: `s2_tci`, `s2_ndvi`, `s2r2m_tci`, `s2r2m_ndvi`, `sr_tci`, `sr_ndvi`.\n\n### Band visualizations (RGB combinations)\n\n| Suffix          | Bands                  | Purpose                   |\n|-----------------|------------------------|---------------------------|\n| `_natural`      | Red-Green-Blue         | True color                |\n| `_veganalysis`  | NIR-Red-Green          | Vegetation / false-color  |\n| `_cropsoil`     | NIR-SWIR-Red           | Crop / soil moisture      |\n| `_vegstress`    | SWIR-NIR-Red           | Vegetation stress         |\n| `_vegmoisture`  | SWIR-NIR-Green         | Vegetation + moisture     |\n| `_geology`      | SWIR-NIR-Blue          | Geological features       |\n| `_urban`        | NIR-SWIR-Blue          | Urban / rock              |\n| `_water`        | NIR-Red-Blue           | Water bodies              |\n| `_watercontent` | SWIR-Red-Green         | Water content             |\n| `_atmosphere`   | NIR-Green-Blue         | Atmospheric haze          |\n| `_burnscar`     | SWIR2-NIR-Red          | Burn scars                |\n| `_snow`         | SWIR-Red-Green         | Snow / ice                |\n| `_bathymetric`  | Red-Green-Blue         | Bathymetric (shallow water)|\n| `_drought`      | SWIR2-SWIR1-Red        | Drought                   |\n\n### Spectral indices (single-band scalar maps)\n\n| Suffix     | Name / Description                              |\n|------------|--------------------------------------------------|\n| `_ndvi`    | NDVI — Vegetation health                        |\n| `_ndwi`    | NDWI — Surface water content                    |\n| `_ndmi`    | NDMI — Canopy moisture                          |\n| `_savi`    | SAVI — Soil-adjusted vegetation                 |\n| `_msavi`   | MSAVI — Modified SAVI                           |\n| `_msavi2`  | MSAVI2 — Second-order MSAVI                     |\n| `_osavi`   | OSAVI — Optimized SAVI                          |\n| `_tsavi`   | TSAVI — Transformed SAVI                        |\n| `_evi`     | EVI — Enhanced vegetation                       |\n| `_evi2`    | EVI2 — Two-band EVI                             |\n| `_nbr`     | NBR — Burn ratio                                |\n| `_nbr2`    | NBR2 — Alternative burn ratio                   |\n| `_ndre`    | NDRE — Red-edge NDVI                            |\n| `_ndre2`   | NDRE variant (different red-edge band)          |\n| `_ndre3`   | NDRE variant (different red-edge band)          |\n| `_rendvi`  | RENDVI — Red-edge normalized difference         |\n| `_cire`    | CIRE — Chlorophyll index, red-edge              |\n| `_cire2`   | CIRE variant                                    |\n| `_cire3`   | CIRE variant                                    |\n| `_cig`     | CIG — Chlorophyll index, green                  |\n| `_gndvi`   | GNDVI — Green NDVI                              |\n| `_rvi`     | RVI — Ratio VI (NIR/Red)                        |\n| `_dvi`     | DVI — Difference VI                             |\n| `_rdvi`    | RDVI — Renormalized DVI                         |\n| `_pvi`     | PVI — Perpendicular VI                          |\n| `_ipvi`    | IPVI — Infrared percentage VI                   |\n| `_grvi`    | GRVI — Green-Red VI                             |\n| `_sr`      | SR — Simple ratio                               |\n| `_sr2`     | SR2 — Simple ratio variant                      |\n| `_sipi`    | SIPI — Structure-insensitive pigment            |\n| `_ari`     | ARI — Anthocyanin reflectance                   |\n| `_cri1`    | CRI1 — Carotenoid reflectance                   |\n| `_cri2`    | CRI2 — Carotenoid reflectance variant           |\n| `_mcari`   | MCARI — Modified chlorophyll absorption         |\n| `_tcari`   | TCARI — Transformed chlorophyll absorption      |\n| `_mre`     | MRE — Modified red edge                         |\n| `_tre`     | TRE — Transformed red edge                      |\n| `_mtvi`    | MTVI — Modified triangular VI                   |\n| `_mtvi2`   | MTVI2 — Modified triangular VI 2                |\n| `_tvi`     | TVI — Triangular VI                             |\n| `_ndsi`    | NDSI — Normalized difference soil               |\n| `_bsi`     | BSI — Bare soil                                 |\n| `_lai`     | LAI — Leaf area index                           |\n| `_cwc`     | CWC — Canopy water content (g/m²)               |\n| `_mineralclass` | Mineral classification (permission-gated)  |\n\n### Landsat\n\n| View        | Resolution | Notes                 |\n|-------------|------------|-----------------------|\n| `ls15_tci`  | 15m        | Pansharpened Landsat  |\n| `ls5_tci`   | 5m         | Upscaled from 15m     |\n\n### Combined Sentinel-2 + Landsat\n\n| View        | Resolution | Notes                                                                           |\n|-------------|------------|---------------------------------------------------------------------------------|\n| `r5m_tci`   | 5m         | Auto-selects S2 (5m derived) or Landsat (5m) per date for best temporal coverage |\n\n### PlanetScope\n\n| View        | Resolution | Notes                        |\n|-------------|------------|------------------------------|\n| `ps_tci`    | 3m         | Native PlanetScope tile      |\n| `psrr_tci`  | 1.9m       | Refined Reality super-res x2 |\n\n### Sentinel-1 SAR\n\nBackscatter intensity (logarithmic, colorized). The `tci` suffix produces an\n8-bit display-ready PNG. SAR penetrates clouds and works day/night.\n\n| View          | Resolution | Polarization | Notes                 |\n|---------------|------------|--------------|-----------------------|\n| `s1vv_tci`    | 10m        | VV           | Native raw Sentinel-1 |\n| `s1vh_tci`    | 10m        | VH           | Native raw Sentinel-1 |\n| `s1vvsr_tci`  | 1m         | VV           | Super-resolved        |\n| `s1vhsr_tci`  | 1m         | VH           | Super-resolved        |\n\n### Night light (VIIRS Black Marble)\n\n| View                       | Resolution | Visualization                                           |\n|----------------------------|------------|---------------------------------------------------------|\n| `nightlight25m_tci`        | 25m        | Grayscale light intensity                               |\n| `nightlight25m_darkened`   | 25m        | Grayscale terrain, darkened where no light              |\n| `nightlight25m_lighted`    | 25m        | Grayscale terrain, golden highlights where lights are   |\n| `nightlight500m_tci`       | 500m       | Grayscale light intensity                               |\n| `nightlight500m_darkened`  | 500m       | Grayscale terrain, darkened where no light              |\n| `nightlight500m_lighted`   | 500m       | Grayscale terrain, golden highlights where lights are   |\n\n### High-value analytics & composite indexes (2m reconstructed)\n\nEach of these is a complete high-value analytics product or a complex\ncomposite index built on top of `s2r2m` — not a plain single-band index.\n\n| View                              | Description                                                     |\n|-----------------------------------|-----------------------------------------------------------------|\n| `s2r2m_soilsalinity`              | Soil salinity score (0–100)                                     |\n| `s2r2m_soilsalinityclass`         | Soil salinity categorical classes                               |\n| `s2r2m_soilsalinityconfidence`    | Model confidence for the soil-salinity estimate                 |\n| `s2r2m_biomassgrassland`          | Grassland biomass (kg/ha) — pasture / rangeland focus           |\n| `s2r2m_soilmoisture`              | Surface soil-moisture estimate                                  |\n| `s2r2m_bgwaterleak`               | Subsurface / background water-leak warnings                     |\n| `s2r2m_mineralmap`                | Mineral map (permission-gated)                                  |\n| `s2r2m_mineralclass`              | Mineral classification (permission-gated)                       |\n\n### Elevation\n\n| View  | Resolution                             | Notes                                                         |\n|-------|----------------------------------------|---------------------------------------------------------------|\n| `dem` | 1m spatial, 0.5–1m vertical accuracy   | ETD's own elevation dataset (not SRTM/ALOS)                   |\n\n### Other views\n\n| View            | Description                                              |\n|-----------------|----------------------------------------------------------|\n| `flood`         | Flood simulation                                         |\n| `s2_scl`        | Sentinel-2 Scene Classification Layer (cloud/shadow/etc) |\n| `changes_tci`   | Change detection between two dates                       |\n",
+    "version": "3.1.0"
+  },
+  "paths": {
+    "/pollution_geocode": {
+      "get": {
+        "summary": "Pollution Geocode",
+        "description": "Incremental place-name search -\u003E top 10 [{name,lat,lon}]. Uses Photon (komoot, OSM-based)\nwhich is built for autocomplete; Nominatim public forbids autocomplete use and rate-limits.",
+        "operationId": "pollution_geocode_pollution_geocode_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pollution_value": {
+      "get": {
+        "summary": "Pollution Value",
+        "description": "Current S5P reading(s) + units at a point. gas omitted/'combined' -\u003E all 6 gases.",
+        "operationId": "pollution_value_pollution_value_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Lon"
+            }
+          },
+          {
+            "name": "gas",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Gas"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pollution/{view}/{zoom}/{tile_x}/{tile_y}": {
+      "get": {
+        "summary": "Get Pollution Overlay",
+        "description": "Low-zoom transparent RGBA pollution OVERLAY tiles (S5P global store).\nSeparate from /v2 (which stays S2 z12-21). Continental scale: zoom 1-9.",
+        "operationId": "get_pollution_overlay_pollution__view___zoom___tile_x___tile_y__get",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "View"
+            }
+          },
+          {
+            "name": "zoom",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Zoom"
+            }
+          },
+          {
+            "name": "tile_x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tile X"
+            }
+          },
+          {
+            "name": "tile_y",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tile Y"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/{view}/{zoom}/{tile_x}/{tile_y}": {
+      "get": {
+        "summary": "Get Tile V2",
+        "description": "Get satellite tile using tile.py - Main API endpoint\n\nArgs:\n    view: Product view type (s2_tci, sr_tci, etc.)\n    zoom: Tile zoom level (14-18 only)\n    tile_x: Tile X coordinate\n    tile_y: Tile Y coordinate\n    end_date: Target date in YYYY-MM-DD format\n    days_back: Days to search backwards\n    max_clouds: Maximum cloud coverage percentage\n    before: Before date for change detection",
+        "operationId": "get_tile_v2_v2__view___zoom___tile_x___tile_y__get",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "View"
+            }
+          },
+          {
+            "name": "zoom",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Zoom"
+            }
+          },
+          {
+            "name": "tile_x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tile X"
+            }
+          },
+          {
+            "name": "tile_y",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tile Y"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "days_back",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 15,
+              "title": "Days Back"
+            }
+          },
+          {
+            "name": "max_clouds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Max Clouds"
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Months"
+            }
+          },
+          {
+            "name": "prior_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prior Date"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "name": "file",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "File"
+            }
+          },
+          {
+            "name": "planet_apikey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Planet Apikey"
+            }
+          },
+          {
+            "name": "apikey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Apikey"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dem_at_lat_lon": {
+      "get": {
+        "summary": "Dem At Lat Lon",
+        "description": "Get DEM elevation at a specific lat/lon point.\nReturns elevation from all 5 free DEM sources plus the fused result.",
+        "operationId": "dem_at_lat_lon_dem_at_lat_lon_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Latitude",
+              "title": "Lat"
+            },
+            "description": "Latitude"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Longitude",
+              "title": "Lon"
+            },
+            "description": "Longitude"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/los": {
+      "get": {
+        "summary": "Line Of Sight",
+        "description": "Terrain line-of-sight over the BaseDEM2 DSM.\n\nWalks the sight line between two points (each lifted `height` m above the DSM\nsurface at its location) and returns the first terrain blockage, accounting\nfor Earth curvature. Returns {\"blocked\": bool, \"blocked_at\": {lat,lon,elevation}|null}.",
+        "operationId": "line_of_sight_los_get",
+        "parameters": [
+          {
+            "name": "from_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Observer latitude",
+              "title": "From Lat"
+            },
+            "description": "Observer latitude"
+          },
+          {
+            "name": "from_lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Observer longitude",
+              "title": "From Lon"
+            },
+            "description": "Observer longitude"
+          },
+          {
+            "name": "from_height",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Observer height above ground surface (m)",
+              "title": "From Height"
+            },
+            "description": "Observer height above ground surface (m)"
+          },
+          {
+            "name": "to_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Target latitude",
+              "title": "To Lat"
+            },
+            "description": "Target latitude"
+          },
+          {
+            "name": "to_lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Target longitude",
+              "title": "To Lon"
+            },
+            "description": "Target longitude"
+          },
+          {
+            "name": "to_height",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Target height above ground surface (m)",
+              "title": "To Height"
+            },
+            "description": "Target height above ground surface (m)"
+          },
+          {
+            "name": "curvature",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "'refraction' (4/3 Earth), 'sphere', or 'flat'",
+              "default": "refraction",
+              "title": "Curvature"
+            },
+            "description": "'refraction' (4/3 Earth), 'sphere', or 'flat'"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history_snapshot": {
+      "get": {
+        "summary": "History Snapshot",
+        "description": "Generate agricultural field history snapshot or serve the HTML interface\n\nArgs:\n    title: Title for the snapshot (required for image generation)\n    bbox: Bounding box as min_lat,min_lon,max_lat,max_lon (required for image generation)\n    unit: Time unit (week|month|quarter|year), defaults to quarter\n    start: Start date as yyyy-mm-dd, defaults to today\n    count: Number of time periods, defaults to 12, max 25\n    views: Comma-separated list of views (up to 3), defaults to s2rr_tci",
+        "operationId": "history_snapshot_history_snapshot_get",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Title"
+            }
+          },
+          {
+            "name": "bbox",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bbox"
+            }
+          },
+          {
+            "name": "unit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(week|month|quarter|year)$",
+              "default": "quarter",
+              "title": "Unit"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 25,
+              "minimum": 1,
+              "default": 12,
+              "title": "Count"
+            }
+          },
+          {
+            "name": "views",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "s2rr_tci",
+              "title": "Views"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/download_aoi/{bbox_lat_lon}/{date_str}/{days_back}/{max_clouds}/{view}": {
+      "get": {
+        "summary": "Download Aoi V2",
+        "description": "Download Area of Interest - V2 API format\n\nArgs:\n    bbox_lat_lon: Bounding box as \"west,south,east,north\"\n    date_str: Target date in YYYY-MM-DD format\n    days_back: Days to search backwards\n    max_clouds: Maximum cloud coverage percentage\n    view: Product view type",
+        "operationId": "download_aoi_v2_v2_download_aoi__bbox_lat_lon___date_str___days_back___max_clouds___view__get",
+        "parameters": [
+          {
+            "name": "bbox_lat_lon",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bbox Lat Lon"
+            }
+          },
+          {
+            "name": "date_str",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Date Str"
+            }
+          },
+          {
+            "name": "days_back",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Days Back"
+            }
+          },
+          {
+            "name": "max_clouds",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Max Clouds"
+            }
+          },
+          {
+            "name": "view",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "View"
+            }
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Months"
+            }
+          },
+          {
+            "name": "prior_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prior Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dates/{lat_lon}/{view}/{date_str}/{days_back}/{max_clouds}": {
+      "get": {
+        "summary": "Get Available Dates",
+        "description": "Get list of available satellite imagery dates for a specific location.\n\nArgs:\n    lat_lon: Location as 'latitude,longitude'\n    view: Product name (e.g., s2_tci, sr_tci)\n    date_str: End date in YYYY-MM-DD format\n    days_back: Days to search back from end date\n    max_clouds: Maximum cloud coverage percentage (0-100)\n    source: Data source - \"s2\" for Sentinel-2 (default) or \"ps\" for PlanetScope\n\nReturns:\n    JSON array of available dates",
+        "operationId": "get_available_dates_dates__lat_lon___view___date_str___days_back___max_clouds__get",
+        "parameters": [
+          {
+            "name": "lat_lon",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Lat Lon"
+            }
+          },
+          {
+            "name": "view",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "View"
+            }
+          },
+          {
+            "name": "date_str",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Date Str"
+            }
+          },
+          {
+            "name": "days_back",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Days Back"
+            }
+          },
+          {
+            "name": "max_clouds",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Max Clouds"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "s2",
+              "title": "Source"
+            }
+          },
+          {
+            "name": "planet_apikey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Planet Apikey"
+            }
+          },
+          {
+            "name": "include_safe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Safe"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/download_shapefile/{date_str}/{days_back}/{max_clouds}/{view}": {
+      "post": {
+        "summary": "Download Shapefile",
+        "description": "Download a satellite image cropped to an uploaded shapefile.\n\n**Body:** raw shapefile bytes — `.shp`, `.zip` (shapefile or KMZ-as-zip),\n`.geojson`, `.kml`, or `.kmz`. LineString geometries are auto-closed\ninto polygons. Pixels outside the polygon are masked.\n\nAppend `_geotiff` to the view to get a GeoTIFF (multi-band, masked with\nnodata outside the shape); otherwise a PNG with alpha=0 outside.\n\nLogged AOI usage reflects the polygon area, not the bbox.\n\nFor the `view` parameter syntax, see the **View names** section at the\ntop of this API's documentation.",
+        "operationId": "download_shapefile_download_shapefile__date_str___days_back___max_clouds___view__post",
+        "parameters": [
+          {
+            "name": "date_str",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Date Str"
+            }
+          },
+          {
+            "name": "days_back",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Days Back"
+            }
+          },
+          {
+            "name": "max_clouds",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Max Clouds"
+            }
+          },
+          {
+            "name": "view",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "View"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mineralmap": {
+      "get": {
+        "summary": "Mineralmap Endpoint",
+        "description": "Produce mineral maps for an area of interest.\n\nReturns a zip file containing mineral mapping outputs for each date:\n- primary/: tci, geology_composite, sabins, classification, ecai\n- secondary/: pca, iron, mixed_iron",
+        "operationId": "mineralmap_endpoint_mineralmap_get",
+        "parameters": [
+          {
+            "name": "aoi",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Bounding box as 'lat_min,lon_min,lat_max,lon_max' (max 100 sq km)",
+              "title": "Aoi"
+            },
+            "description": "Bounding box as 'lat_min,lon_min,lat_max,lon_max' (max 100 sq km)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "End date YYYY-MM-DD",
+              "title": "End Date"
+            },
+            "description": "End date YYYY-MM-DD"
+          },
+          {
+            "name": "image_count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "description": "Number of images",
+              "default": 1,
+              "title": "Image Count"
+            },
+            "description": "Number of images"
+          },
+          {
+            "name": "days_gap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 7,
+              "description": "Days between images",
+              "default": 90,
+              "title": "Days Gap"
+            },
+            "description": "Days between images"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

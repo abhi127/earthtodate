@@ -75,7 +75,6 @@ export default function LoginForm() {
           {loading ? 'Signing in\u2026' : 'Sign In'}
         </button>
 
-        <p className={styles.hint}>Demo: <strong>admin</strong> / <strong>admin123</strong></p>
       </form>
     </div>
   );

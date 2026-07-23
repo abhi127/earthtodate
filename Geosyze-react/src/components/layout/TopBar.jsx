@@ -3,8 +3,16 @@ import MenuBar from './MenuBar';
 import ThemeToggle from './ThemeToggle';
 import styles from './TopBar.module.css';
 
-export default function TopBar({ onToggleSidebar, onMenuAction }) {
+export default function TopBar({ onToggleSidebar, onMenuAction, compareMode, setCompareMode }) {
   const { logout } = useAuth();
+
+  function handleCompareToggle() {
+    if (compareMode) {
+      setCompareMode(null);
+    } else {
+      setCompareMode('compare');
+    }
+  }
 
   return (
     <header className={styles.bar}>
@@ -23,6 +31,12 @@ export default function TopBar({ onToggleSidebar, onMenuAction }) {
         </svg>
         <span className={styles.brand}>GEOSYZE</span>
         <MenuBar onMenuAction={onMenuAction} />
+        <button className={`${styles.compareBtn} ${compareMode ? styles.compareActive : ''}`} onClick={handleCompareToggle} title={compareMode ? 'Exit compare mode' : 'Compare basemaps'}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="18" rx="1" />
+            <rect x="14" y="3" width="7" height="18" rx="1" />
+          </svg>
+        </button>
       </div>
       <div className={styles.right}>
         <ThemeToggle />

@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import styles from './MapControls.module.css';
+import satStyles from './SatellitePanel.module.css';
 
-export default function MapControls({ map }) {
+export default function MapControls({ map, onToggleSatellite, satelliteActive }) {
   const ol = window.ol;
 
   const zoomIn = useCallback(() => {
@@ -78,6 +79,24 @@ export default function MapControls({ map }) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 16C6 9 9 6 12 6S18 9 18 16"/>
             <polyline points="14 12 18 16 12 17"/>
+          </svg>
+        </button>
+      </div>
+      <div className={styles.section}>
+        <button
+          className={`${satStyles.toggleBtn} ${satelliteActive ? satStyles.toggleBtnActive : ''}`}
+          onClick={onToggleSatellite}
+          title="Satellite imagery layers"
+          data-satellite-toggle="true"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a10 10 0 0 1 10 10"/>
+            <path d="M12 6a6 6 0 0 1 6 6"/>
+            <path d="M12 10a2 2 0 0 1 2 2"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+            <path d="M22 12c0 5.5-4.5 10-10 10" opacity="0.5"/>
+            <path d="M12 22C6.5 22 2 17.5 2 12" opacity="0.3"/>
+            <circle cx="12" cy="12" r="10" opacity="0.15"/>
           </svg>
         </button>
       </div>

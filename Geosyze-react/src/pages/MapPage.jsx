@@ -6,14 +6,11 @@ import styles from './MapPage.module.css';
 
 export default function MapPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [compareMode, setCompareMode] = useState(null);
   const mapRef = useRef(null);
 
   const handleClear = useCallback(() => {
     mapRef.current?.clearAll();
-  }, []);
-
-  const handleDrawComplete = useCallback(() => {
-    setSidebarOpen(true);
   }, []);
 
   const handleMenuAction = useCallback((action) => {
@@ -42,6 +39,24 @@ export default function MapPage() {
       case 'draw-clear':
         handleClear();
         break;
+      case 'export-geojson':
+        mapRef.current?.exportFeatures('geojson');
+        break;
+      case 'export-kml':
+        mapRef.current?.exportFeatures('kml');
+        break;
+      case 'export-gpx':
+        mapRef.current?.exportFeatures('gpx');
+        break;
+      case 'export-csv':
+        mapRef.current?.exportFeatures('csv');
+        break;
+      case 'export-wkt':
+        mapRef.current?.exportFeatures('wkt');
+        break;
+      case 'export-shapefile':
+        mapRef.current?.exportFeatures('shapefile');
+        break;
       case 'help-about':
         alert('GEOSYZE v1.0 \u2014 GIS Intelligence Platform');
         break;
@@ -55,11 +70,11 @@ export default function MapPage() {
 
   return (
     <div className={styles.page}>
-      <TopBar onToggleSidebar={() => setSidebarOpen((o) => !o)} onMenuAction={handleMenuAction} />
+      <TopBar onToggleSidebar={() => setSidebarOpen((o) => !o)} onMenuAction={handleMenuAction} compareMode={compareMode} setCompareMode={setCompareMode} />
       <div className={styles.body}>
         <Sidebar isOpen={sidebarOpen} />
         <main className={styles.mapArea}>
-          <MapView ref={mapRef} onDrawComplete={handleDrawComplete} />
+          <MapView ref={mapRef} compareMode={compareMode} setCompareMode={setCompareMode} />
         </main>
       </div>
     </div>

@@ -3,12 +3,13 @@ import styles from './MenuBar.module.css';
 
 function Dropdown({ menu, items, onAction }) {
   const [open, setOpen] = useState(false);
+  const [subOpen, setSubOpen] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => {
     if (!open) return;
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setSubOpen(null); }
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -27,6 +28,30 @@ function Dropdown({ menu, items, onAction }) {
           {items.map((item, i) =>
             item.separator ? (
               <div key={i} className={styles.separator} />
+            ) : item.submenu ? (
+              <div key={i} className={styles.submenuWrap}
+                onMouseEnter={() => setSubOpen(i)}
+                onMouseLeave={() => setSubOpen(null)}>
+                <button className={styles.dropItem} onClick={() => setSubOpen(subOpen === i ? null : i)}>
+                  <span>{item.label}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.subChevron}>
+                    <polyline points="9 6 15 12 9 18"/>
+                  </svg>
+                </button>
+                {subOpen === i && (
+                  <div className={styles.submenu}>
+                    {item.submenu.map((sub, j) =>
+                      sub.separator ? (
+                        <div key={j} className={styles.separator} />
+                      ) : (
+                        <button key={j} className={styles.dropItem} onClick={() => { setOpen(false); setSubOpen(null); onAction(sub.action); }}>
+                          {sub.label}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
               <button key={i} className={styles.dropItem} onClick={() => { setOpen(false); onAction(item.action); }}>
                 {item.label}
@@ -46,8 +71,18 @@ export default function MenuBar({ onMenuAction }) {
       items: [
         { label: 'New Project', action: 'new-project' },
         { separator: true },
-        { label: 'Export GeoJSON', action: 'export-geojson' },
-        { label: 'Export KML', action: 'export-kml' },
+        {
+          label: 'Export',
+          submenu: [
+            { label: 'GeoJSON', action: 'export-geojson' },
+            { label: 'KML', action: 'export-kml' },
+            { label: 'GPX', action: 'export-gpx' },
+            { label: 'CSV', action: 'export-csv' },
+            { label: 'WKT', action: 'export-wkt' },
+            { separator: true },
+            { label: 'Shapefile (.zip)', action: 'export-shapefile' },
+          ],
+        },
         { separator: true },
         { label: 'Logout', action: 'logout' },
       ],

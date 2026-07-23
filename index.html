@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>EarthToDate</title>
+    <link rel="stylesheet" href="/static/sample.css?v=4.56">
+    <!-- general styles -->
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html {
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            width: 100vw;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }        
+        body::-webkit-scrollbar {
+            display: none;
+        }
+
+        body {
+            scrollbar-width: none;  /* Firefox */
+            -ms-overflow-style: none;  /* IE and Edge */
+        }
+
+        body {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -khtml-user-select: none;
+            touch-action: none;
+        }        
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        button {
+            padding: 0px 7px;
+            touch-action: manipulation;
+            pointer-events: auto;
+        }
+        select, input {
+            touch-action: manipulation;
+            pointer-events: auto;
+        }
+        label {
+            touch-action: manipulation;
+            pointer-events: auto;
+        }
+        /* Allow touch on UI containers */
+        #uiTopBar, #rightSideMapUI {
+            touch-action: manipulation;
+            pointer-events: auto;
+        }
+        .clickable-element {
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .view {
+            position: relative;
+            width: calc(50% - 3px);
+            height: 600px;
+            overflow: hidden;
+        }
+        .splitView {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+        .splitter {
+            width: 6px;
+            height: 600px;
+            background: #ccc;
+            z-index: 1;
+        }
+        .nowrap {
+            white-space: nowrap;
+            display: inline-block;
+        }
+        .notUpToDateNotice {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            height: 2em;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 5px;
+            font-size: small;
+        }
+        .attributionNotice {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            height: 2em;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 5px;
+            font-size: small;
+        }
+        .sclLegend {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            bottom: 40px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .sclLegend .legendTitle {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .sclLegend .legendItem {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+            line-height: 1.3;
+        }
+        .sclLegend .legendColor {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+            border: 1px solid rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+        .mineralLegend {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            bottom: 40px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .mineralLegend .legendTitle {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .mineralLegend .legendItem {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+            line-height: 1.3;
+        }
+        .mineralLegend .legendColor {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+            border: 1px solid rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+        .soilSalinityLegend {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            bottom: 40px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .soilSalinityLegend .legendTitle {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .soilSalinityLegend .legendItem {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+            line-height: 1.3;
+        }
+        .soilSalinityLegend .legendColor {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+            border: 1px solid rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+        .lulcLegend {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            bottom: 40px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .lulcLegend .legendTitle {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .lulcLegend .legendItem {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+            line-height: 1.3;
+        }
+        .lulcLegend .legendColor {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+            border: 1px solid rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+        .soilMoistureLegend {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            bottom: 40px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .soilMoistureLegend .legendTitle {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .soilMoistureLegend .gradientBar {
+            width: 100%;
+            height: 14px;
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 2px;
+        }
+        .soilMoistureLegend .gradientLabels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2px;
+        }
+        .soilScoreLegend {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            bottom: 40px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .soilScoreLegend .legendTitle {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .soilScoreLegend .gradientBar {
+            width: 100%;
+            height: 14px;
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 2px;
+        }
+        .soilScoreLegend .gradientLabels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2px;
+        }
+        .pollutionLegend {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            bottom: 40px;
+            left: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+        }
+        .pollutionLegend .legendTitle {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .pollutionLegend .legendItem {
+            display: flex;
+            align-items: center;
+            margin: 2px 0;
+            line-height: 1.3;
+        }
+        .pollutionLegend .legendColor {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+            border: 1px solid rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+        .pollutionLegend .gradientBar {
+            width: 100%;
+            height: 14px;
+            border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 2px;
+        }
+        .pollutionLegend .gradientLabels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2px;
+        }
+        .floodControl {
+            display: none;
+            z-index: 4;
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 12px;
+            font-size: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .floodControl .floodTitle {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #333;
+        }
+        .floodControl .floodSlider {
+            -webkit-appearance: slider-vertical;
+            width: 8px;
+            height: 150px;
+            margin: 8px 0;
+            cursor: pointer;
+            writing-mode: bt-lr;
+        }
+        .floodControl .floodValue {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0066cc;
+            margin-top: 8px;
+        }
+        .popupDialog {
+            z-index: 10001;
+            position: absolute;
+            width: 333px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .popupCloseButton {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 2px;
+            margin: 10px;
+            font-size: smaller;
+            cursor: pointer;
+        }
+        .popupTitle {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .popupRow {
+            height: 1.7em;
+            vertical-align: middle;
+        }
+        .popupLabel {
+            display: inline-block;
+            min-width: 85px;
+        }
+        .popupSelect {
+            max-width: 205px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .popupActionButton {
+            margin-top: 10px;
+        }
+        .search-result {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .search-result:hover {
+            background: #f0f0f0;
+        }
+    </style>
+    <!-- mapping styles -->
+    <style>
+        #map-container {
+            width: 800px;
+            height: 600px;
+            position: relative;
+            overflow: hidden;
+            background: #f0f0f0;
+        }
+        .map-tile {
+            position: absolute;
+            image-rendering: pixelated;
+            width: 256px;
+            height: 256px;
+            pointer-events: none;
+        }
+        .map-controls {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .zoom-button {
+            touch-action: manipulation; /* Disable browser handling of all panning and zooming gestures */
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+            width: 30px;
+            height: 30px;
+            font-size: 20px;
+            cursor: pointer;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .map-source {
+            margin-bottom: 10px;  /* Space between dropdown and map */
+        }
+        .map-source select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background: white;
+        }
+        .map-opener-select {
+            /* padding: 8px; */
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: white;
+            cursor: pointer;
+            min-width: 100px;
+            max-width: 100px;
+        }
+        .map-opener-select:hover {
+            border-color: #888;
+        }
+        .open-opener-option {
+            width: '100px';
+            max-width: '100px';
+            white-space: 'nowrap';
+            overflow: 'hidden';
+            text-overflow: 'ellipsis'
+        }
+    </style>
+    <!-- mark AOI styles -->
+     <style>
+        .aoi {
+            position: absolute;
+            z-index: 10000;
+            border: 2px solid #2196F3;
+            background-color: rgba(33, 150, 243, 0.2);
+            pointer-events: none;
+        }
+
+        .aoi-corner {
+            width: 10px;
+            height: 10px;
+            background: white;
+            border: 2px solid #2196F3;
+            position: absolute;
+            cursor: move;
+            pointer-events: all;
+        }
+
+        .aoi-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .aoi-coords {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+     </style>
+     <!-- block some default mouse behaviors -->
+    <script>
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=')) {
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('wheel', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+
+        // Prevent default touch behavior globally, but allow specific UI controls
+        document.addEventListener('touchstart', function(e) {
+            // Allow touch on interactive elements and UI containers by NOT preventing default
+            if (e.target.closest('select, input, button, a, label, [role="button"], #uiTopBar, #rightSideMapUI')) {
+                return;
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('touchmove', function(e) {
+            // Allow touch on interactive elements and UI containers by NOT preventing default
+            if (e.target.closest('select, input, button, a, label, [role="button"], #uiTopBar, #rightSideMapUI')) {
+                return;
+            }
+            e.preventDefault();
+        }, { passive: false });
+    </script>
+</head>
+<body>
+    <div id="viewsContainer" style="display: flex;">
+        <!-- <div id="map" class="view"></div> -->
+         <div id="view1container" class="view">
+            <div id="view1" style="width:100%; height:100%;"></div>
+        </div>
+        <div class="splitter"></div>
+        <div id="view2" class="view"></div>
+    </div>
+
+    <!-- <script src="/js/networkmonitor.js"></script> -->
+    <script src="https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js"></script>
+    <script src="/static/i18n_table.js?v=4.56"></script>
+    <script src="/static/i18n.js?v=4.56"></script>
+    <script src="/static/utils.js?v=4.56"></script>
+    <script src="/static/markaoi.js?v=4.56"></script>
+    <script src="https://cdn.jsdelivr.net/npm/geotiff@2.0.7/dist-browser/geotiff.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/proj4@2.9.0/dist/proj4.js"></script>
+    <script src="/static/element84.js?v=4.56"></script>
+    <script src="/static/s2client.js?v=4.56"></script>
+    <script src="/static/mapping.js?v=4.56"></script>
+    <script src="/static/isometric.js?v=4.56"></script>
+    <script src="/static/calendar.js?v=4.56"></script>
+    <script src="ui.js?v=4.56"></script>
+
+    <!-- globals -->
+    <script>
+        let zoom = undefined;
+        let lat = undefined;
+        let lon = undefined;
+        let views = undefined;
+        let demomode = false;
+
+        // Server-rendered app version (kept in sync with the ?v= cache-bust on script tags).
+        window.appVersion = "4.56";
+        // Serving server: "ETD" (MacStudio) or "Cloud" (Hetzner).
+        window.serverLabel = "ETD";
+
+        // User information from server
+        window.currentUser = {
+            username: "None",
+            email: "None",
+            user_id: "eiVpnnDxfiscl",
+            admin: none,
+            mineralmap: 0,
+            esriworldimagery: 0
+        };
+    </script>
+
+    <script>
+        // Store previous parameters to detect changes
+        let previousParams = null;
+        
+        window.refreshAllViews = function refreshAllViews() {
+            // Check if parameters have changed and clear cache if needed
+            const currentParams = JSON.stringify(views.map(v => ({
+                date: v.date,
+                days_back: v.days_back,
+                max_clouds: v.max_clouds,
+                viewtype: v.viewtype
+            })));
+            
+            if (previousParams && previousParams !== currentParams) {
+                clearFailedTilesCache();
+            }
+            previousParams = currentParams;
+            
+            const viewsContainer = document.getElementById('viewsContainer');
+            const view1container = document.getElementById('view1container');
+            const view1 = document.getElementById('view1');
+            const view2 = document.getElementById('view2');
+            const leftwidth = view1container.clientWidth;
+            view1container.style.width = `${leftwidth}px`;
+            if (layout != 'overlap') {
+                // Dual: view2 is the right pane, sized to fill the remaining width.
+                view2.style.width = `calc(100% - ${leftwidth + 6}px)`;
+            }
+            // Overlap: view2 is the full-width underlay (.splitView), view1container
+            // clips the full-width view1 on top to reveal view2 — leave view2 at 100%.
+            for (let i = 0; i < views.length; i++) {
+                const view = views[i];
+                const container = document.getElementById(`view${i + 1}`);
+                const containerId = container.id;
+                if (view.map != undefined) {
+                    view.map.refresh();
+                }
+                const notUpToDateNotice = document.getElementById(`notUpToDateNotice${i + 1}`);
+                const isUpToDate = (view.viewtype.indexOf('_') > -1 && zoom >= 14);
+                const isExternalImagery = ['map', 'aerial', 'esriworldimagery', 'basemap', 'isometric', 'dem', 'worldcover'].includes(view.viewtype);
+                notUpToDateNotice.style.display = (isUpToDate || isExternalImagery) ? 'none' : 'block';
+                // Pollution: legend + S5P attribution / "X-day reading" notice (or zoom-fault message)
+                if (typeof updatePollutionUI === 'function') updatePollutionUI(i + 1, view.viewtype, zoom);
+                const attributionNotice = document.getElementById(`attributionNotice${i + 1}`);
+                
+                // Update attribution text based on view type
+                let attributionText = "© EarthToDate";
+                let showAttribution = false;
+                if (view.viewtype === 'map') {
+                    attributionText = "© OpenStreetMap contributors";
+                    showAttribution = true;
+                } else if (view.viewtype === 'ps_tci') {
+                    attributionText = "PlanetScope imagery © Planet";
+                    showAttribution = true;
+                } else if (view.viewtype === 'psrr_tci') {
+                    attributionText = "Enhanced PlanetScope imagery © EarthToDate, source © Planet";
+                    showAttribution = true;
+                } else if (view.viewtype.indexOf('_') > -1 && zoom >= 14) {
+                    attributionText = "© EarthToDate, contains modified Copernicus Sentinel data";
+                    showAttribution = true;
+                } else if (view.viewtype === 'esriworldimagery') {
+                    attributionText = "Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
+                    showAttribution = true;
+                }
+
+                // OSM streets overlay adds its own attribution on any view it covers (not the OSM base view itself).
+                if (window.osmOverlay && view.viewtype !== 'map' && view.viewtype !== 'isometric') {
+                    attributionText = attributionText + " · © OpenStreetMap contributors, © CARTO";
+                    showAttribution = true;
+                }
+
+                attributionNotice.textContent = attributionText;
+                attributionNotice.style.display = showAttribution ? 'block' : 'none';
+
+                // Show/hide SCL legend for SCL views
+                const sclLegend = document.getElementById(`sclLegend${i + 1}`);
+                if (sclLegend) {
+                    const isSclView = view.viewtype.endsWith('_scl');
+                    sclLegend.style.display = isSclView ? 'block' : 'none';
+                }
+
+                // Show/hide Mineral legend for Mineral Map and Mineral Classification views
+                const mineralLegend = document.getElementById(`mineralLegend${i + 1}`);
+                if (mineralLegend) {
+                    const isMineralView = view.viewtype.includes('_mineralmap') || view.viewtype.includes('_mineralclass');
+                    mineralLegend.style.display = isMineralView ? 'block' : 'none';
+                }
+
+                // Show/hide LULC legend
+                const lulcLegend = document.getElementById(`lulcLegend${i + 1}`);
+                if (lulcLegend) {
+                    const isLulcView = view.viewtype.endsWith('_lulc');
+                    lulcLegend.style.display = isLulcView ? 'block' : 'none';
+                }
+
+                // Show/hide WorldCover legend (uses same .lulcLegend CSS class)
+                const wcLegend = document.getElementById(`worldcoverLegend${i + 1}`);
+                if (wcLegend) {
+                    wcLegend.style.display = view.viewtype === 'worldcover' ? 'block' : 'none';
+                }
+
+                // Show/hide Soil Moisture legend
+                const soilMoistureLegend = document.getElementById(`soilMoistureLegend${i + 1}`);
+                if (soilMoistureLegend) {
+                    const isSoilMoistureView = view.viewtype.endsWith('_soilmoisture');
+                    soilMoistureLegend.style.display = isSoilMoistureView ? 'block' : 'none';
+                }
+
+                // Show/hide Soil Salinity legend
+                const soilSalinityLegend = document.getElementById(`soilSalinityLegend${i + 1}`);
+                if (soilSalinityLegend) {
+                    const isSoilSalinityView = view.viewtype.endsWith('_soilsalinityclass');
+                    soilSalinityLegend.style.display = isSoilSalinityView ? 'block' : 'none';
+                }
+
+                const soilScoreLegend = document.getElementById(`soilScoreLegend${i + 1}`);
+                if (soilScoreLegend) {
+                    const isSoilScoreView = view.viewtype.endsWith('_soilsalinity') && !view.viewtype.endsWith('_soilsalinityclass') && !view.viewtype.endsWith('_soilsalinityconfidence');
+                    soilScoreLegend.style.display = isSoilScoreView ? 'block' : 'none';
+                }
+
+                // Show/hide Flood control for flood simulation view
+                const floodControl = document.getElementById(`floodControl${i + 1}`);
+                if (floodControl) {
+                    const isFloodView = view.viewtype === 'flood';
+                    floodControl.style.display = isFloodView ? 'block' : 'none';
+                }
+
+                // Show/hide AIS checkbox for map/aerial/esriworldimagery views
+                const aisLabel = document.getElementById(`aisLabel${i + 1}`);
+                if (aisLabel) {
+                    const isAisView = ['map', 'aerial', 'esriworldimagery'].includes(view.viewtype);
+                    aisLabel.style.display = isAisView ? '' : 'none';
+                    // clear AIS markers when switching away
+                    if (!isAisView) {
+                        const aisCb = document.getElementById(`aisCheckbox${i + 1}`);
+                        if (aisCb) aisCb.checked = false;
+                        const viewEl = document.getElementById(`view${i + 1}`);
+                        if (viewEl) viewEl.querySelectorAll('[data-ais-marker]').forEach(el => el.remove());
+                    }
+                }
+            }
+
+            // OSM overlay toggle: only meaningful over a raster mapping view that
+            // isn't the OSM base view itself (or isometric). Hide it otherwise.
+            const osmToggle = document.getElementById('osmToggle');
+            if (osmToggle) {
+                const visibleCount = (layout === 'single') ? 1 : 2;
+                let eligible = false;
+                for (let i = 0; i < visibleCount && i < views.length; i++) {
+                    if (views[i].viewtype !== 'map' && views[i].viewtype !== 'isometric') { eligible = true; break; }
+                }
+                osmToggle.style.display = eligible ? '' : 'none';
+            }
+
+            // Update AOI position when map is panned
+            if (typeof MarkAOI !== 'undefined' && typeof MarkAOI.updateAOIPosition === 'function') {
+                MarkAOI.updateAOIPosition();
+            }
+        }
+
+        function parsePathname() {
+            let pathname = window.location.pathname;
+            if (pathname.startsWith("/ui")) {
+                pathname = pathname.slice("/ui".length);
+            }
+
+            // parse zoom, lat, lon, views from pathname "z<zoom>,<lat>,<lon>/views" like "z14,37.7749,-122.4194/tci:2021-07-01-90@5,s2tci:2021-07-01-90@5"
+            const [empty, zoom_lat_lon, viewsString] = pathname.split('/');
+            [zoom, lat, lon] = zoom_lat_lon.slice(1).split(',');
+            zoom = parseInt(zoom);
+            lat = parseFloat(lat);
+            lon = parseFloat(lon);
+            
+            // Parse views
+            views = viewsString.split(',').map(view => {
+                // Match pattern: view_type:YYYY-MM-DD-days@clouds
+                const [viewType, params] = view.split(':');
+
+                if (params === undefined) {
+                    return {
+                        viewtype: viewType,
+                        date: undefined,  // Will be set by fetchBestInitialDate
+                        days_back: 1,
+                        max_clouds: 100
+                    };
+                }
+
+                const [dateStr, cloudsStr] = params.split('@');
+                
+                // Parse date components
+                const [year, month, day, daysBack] = dateStr.split('-').map(Number);
+                const date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                
+                return {
+                    viewtype: viewType,
+                    date: date,
+                    days_back: daysBack,
+                    max_clouds: parseInt(cloudsStr)
+                };
+            });
+        }
+
+        async function fetchBestInitialDate(lat, lon, viewtype, days_back, max_clouds) {
+            // Call /dates endpoint to find the best date
+            // Format: /dates/{lat_lon}/{view}/{date_str}/{days_back}/{max_clouds}
+            const today = new Date().toISOString().split('T')[0];
+            // Combined 5m: use S2 for initial date
+            const effectiveView = viewtype === 'r5m_tci' ? 's2r5m_tci' : viewtype;
+            const url = `/dates/${lat},${lon}/${effectiveView}/${today}/${days_back}/${max_clouds}`;
+
+            console.log(`🔍 Fetching initial date from: ${url}`);
+
+            try {
+                const headers = {};
+                if (window.bearer) {
+                    headers['Authorization'] = `Bearer ${window.bearer}`;
+                }
+                const response = await fetch(url, { headers });
+                if (!response.ok) {
+                    console.error('❌ Failed to fetch dates:', response.statusText);
+                    return today;  // Fallback to today
+                }
+
+                const dates = await response.json();
+                console.log(`📅 Received ${dates.length} dates:`, dates);
+
+                if (!dates || dates.length === 0) {
+                    console.log('⚠️ No dates available, using today');
+                    return today;
+                }
+
+                // Find the latest date with <=20% clouds
+                const lowCloudDates = dates.filter(d => d[1] <= 20);  // d[1] is cloud_cover
+                console.log(`☁️ Dates with <=20% clouds (${lowCloudDates.length} found):`, lowCloudDates);
+
+                if (lowCloudDates.length > 0) {
+                    // Sort by date descending and return the latest
+                    lowCloudDates.sort((a, b) => b[0].localeCompare(a[0]));
+                    console.log(`✅ Selected latest low-cloud date: ${lowCloudDates[0][0]} (${lowCloudDates[0][1]}% clouds)`);
+                    console.log(`   All low-cloud candidates (sorted by date):`, lowCloudDates.map(d => `${d[0]} (${d[1]}%)`));
+                    return lowCloudDates[0][0];  // d[0] is the date string
+                }
+
+                // No low-cloud dates, find the date with lowest cloud cover
+                dates.sort((a, b) => a[1] - b[1]);  // Sort by cloud cover ascending
+                console.log(`⚠️ No dates with <=20% clouds found. Using least cloudy: ${dates[0][0]} (${dates[0][1]}% clouds)`);
+                console.log(`   Top 5 least cloudy:`, dates.slice(0, 5).map(d => `${d[0]} (${d[1]}%)`));
+                return dates[0][0];
+            } catch (error) {
+                console.error('❌ Error fetching best date:', error);
+                return today;  // Fallback to today
+            }
+        }
+
+        let pushStateTimeout;
+        function debouncedPushState(newUrl) {
+            if (window.location.pathname === newUrl) return;
+
+            clearTimeout(pushStateTimeout);
+            pushStateTimeout = setTimeout(() => {
+                window.history.pushState({ path: newUrl }, '', newUrl);
+            }, 100); // Adjust delay as needed
+        }
+        function updateUrl() {
+            // form the new URL, e.g., /z14,46.49,6.4618/tci:2024-11-20-365@10
+            const hasPrefix = window.location.pathname.startsWith('/ui');
+            const vp1 = views[0];
+            const view1settings = `${vp1.viewtype}:${vp1.date}-${vp1.days_back}@${vp1.max_clouds}`;
+            const vp2 = views[1];
+            const view2settings = `${vp2.viewtype}:${vp2.date}-${vp2.days_back}@${vp2.max_clouds}`;
+            const newUrlFixedPart = `${hasPrefix ? '/ui' : ''}/z${zoom},${lat.toFixed(5)},${lon.toFixed(5)}`;
+            const newUrl = `${newUrlFixedPart}/${view1settings},${view2settings}`;
+            // if newUrl is different from current URL, push it to history
+            if (window.location.pathname != newUrl) {
+                // window.history.pushState({ path: newUrl }, '', newUrl);
+                debouncedPushState(newUrl);
+            }
+        }
+
+        function fitHeight() {
+            const viewsContainer = document.getElementById('viewsContainer');
+            // iterate all children and set height to the maximum height
+            for (let i = 0; i < viewsContainer.children.length; i++) {
+                const view = viewsContainer.children[i];
+                view.style.height = window.innerHeight + 'px';
+            }
+        }
+
+        let everythingInitialized = false;
+        let needsDateFetch = false;  // Track if we fetched initial date
+        async function initializeEverything(container) {
+            if (!everythingInitialized) {
+                try {
+                    // Load imagery data first (synchronously)
+                    await loadImageryData();
+                    
+                    initializeUI('uiTopBar');
+
+                    // UI bar for every map
+                    const uiBar = createElem(container, 'div', [], { position: 'absolute', top: '52px', left: '0px', width: '100%' });
+                    await initializeMapUI(uiBar, { left: '10px' }, 'view1', 1);
+                    uiContainer = await initializeMapUI(uiBar, { right: '10px' }, 'view2', 2);
+                    uiContainer.id = "rightSideMapUI";
+
+                    // fit height and maintain it
+                    fitHeight();
+                    window.addEventListener('resize', fitHeight);
+
+                    // dragging the splitter element should resize the views
+                    const splitter = document.querySelector('.splitter');
+                    let isDragging = false;
+                    let originX = 0;
+                    splitter.addEventListener('mousedown', (e) => {
+                        isDragging = true;
+                        const view1container = document.getElementById('view1');
+                        originX = view1container.clientWidth;
+                    });
+                    document.addEventListener('mousemove', (e) => {
+                        if (isDragging) {
+                            const leftwidth = e.clientX - 3;
+                            view1container.style.width = `${leftwidth}px`;
+                            refreshAllViews();
+                        }
+                    });
+                    document.addEventListener('mouseup', () => {
+                        isDragging = false;
+                    });
+
+                    refreshAllViews();
+
+                    // Hide date controls for initial esriworldimagery views
+                    const esriworldimageryViews = ['map', 'aerial', 'esriworldimagery', 'basemap', 'dem'];
+                    for (let vi = 0; vi < views.length; vi++) {
+                        if (esriworldimageryViews.includes(views[vi].viewtype)) {
+                            const dc = document.getElementById(`dateContainer${vi + 1}`);
+                            const ac = document.getElementById(`additionalControls${vi + 1}`);
+                            if (dc) dc.style.display = 'none';
+                            if (ac) ac.style.display = 'none';
+                        }
+                    }
+
+                    // Update URL if we fetched initial date
+                    if (needsDateFetch) {
+                        updateUrl();
+                    }
+
+                    // Update search interface based on loaded views
+                    updateSearchInterface();
+                }
+                catch (error) {
+                    console.error('Error during initialization:', error);
+                    throw error;
+                }
+                finally {
+                    everythingInitialized = true;
+                }
+            }
+        }
+
+        window.bearer = null;
+        window.addEventListener('load', async () => {
+            // Get just the Bearer cookie value
+            try {
+                window.bearer = document.cookie.split('; ').find(x => x.startsWith('Bearer=')).split('=')[1]
+            } catch (error) {
+                // will fail when not logged-in
+            }
+
+            parsePathname();
+
+            // If any view doesn't have a date, fetch the best initial date
+            needsDateFetch = views.some(v => v.date === undefined);
+            if (needsDateFetch) {
+                console.log('No date in URL, fetching best initial date...');
+                // Use first view's settings to find best date
+                // Always search 45 days back for initial date selection
+                const bestDate = await fetchBestInitialDate(
+                    lat, lon,
+                    views[0].viewtype,
+                    45,  // Hardcoded: always search 45 days back
+                    100  // Hardcoded: 100% max clouds for initial search
+                );
+
+                // Set date for ALL views when fetching initial date
+                views.forEach((v, idx) => {
+                    console.log(`📌 Setting view ${idx} (${v.viewtype}) date from ${v.date} to ${bestDate}`);
+                    v.date = bestDate;
+                });
+
+                console.log(`✅ Set initial date for all ${views.length} views to: ${bestDate}`);
+                console.log('📋 Final views state:', views.map(v => `${v.viewtype}:${v.date}`));
+
+                // Update URL to reflect the selected date (after UI is created)
+                // Will be called after initialization completes
+            }
+
+            // Demo mode only for unauthenticated users with aerial+etd
+            demomode = (!window.currentUser && views[0].viewtype == "aerial" && views[1].viewtype == "etd");
+            if (demomode) {
+                zoom = 16
+            }
+
+            const container = document.body;
+
+            // UI top bar
+            const uiTopBar = createElem(container, 'div', [], { position: 'absolute', display: 'flex', zIndex: 2, top: '0px', left: '0px', width: '100%', height: '3em', padding: '10px', backgroundColor: 'rgba(255, 255, 255, 0.8)' });
+            uiTopBar.id = 'uiTopBar';
+
+            // Refresh all views on window resize
+            window.addEventListener('resize', _ => {
+                refreshAllViews();
+            });
+
+            // Add cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                console.log('Cleaning up before page unload...');
+                
+                // Destroy all maps
+                if (views) {
+                    views.forEach((view, index) => {
+                        if (view.map && typeof view.map.destroy === 'function') {
+                            view.map.destroy();
+                        }
+                    });
+                }
+                
+                // Clear tile cache
+                tileCache.clear();
+                
+                // Stop any monitoring intervals
+                if (monitoringInterval) {
+                    clearInterval(monitoringInterval);
+                }
+                
+                // Clear any other global timers
+                if (pushStateTimeout) {
+                    clearTimeout(pushStateTimeout);
+                }
+            });
+            
+            // // Monitor for incorrect DOM content and alert once
+            // monitorTimer = window.setInterval(_ => {
+            //     if (everythingInitialized) {
+            //         if (uiTopBar.children.length != 11 ||
+            //             document.querySelectorAll('input[type="date"]').length != 2) 
+            //         {
+            //             window.clearInterval(monitorTimer);
+            //             if (window.location.hostname != 'localhost') {
+            //                 alert('UI bug detected. Please refresh the page.');
+            //             } else {
+            //                 debugger;
+            //             }
+            //         }
+            //     }
+            // }, 100);
+
+            try {
+                await new Promise((resolve) => {
+                    console.log('Initializing MapKit');
+                    mapkit.init({
+                        authorizationCallback: function(done) {
+                            console.log('Authorization callback called');
+                            done('eyJhbGciOiJFUzI1NiIsImtpZCI6IlVWSDI5N1FQQUIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJUM1o1V1U0MksyIiwiaWF0IjoxNzQ2ODE3NTMzLCJleHAiOjE4MzMyMTc1MzN9.H3y5uoLxbSdInfwYCLiTD9UwbtzaW1UzVIumSaewuuTb6IzWBN_3VKuI3jel4v0nJPoyOeAseFRS3EWojbvIbw');
+                            initializeEverything(container);
+                        }
+                    });
+                });
+                initialized = true;
+                // console.log('MapKit initialization complete');
+            } catch (error) {
+                console.error('Error during MapKit initialization:', error);
+                throw error;
+            }
+
+        });
+
+    </script>
+</body>
+</html>

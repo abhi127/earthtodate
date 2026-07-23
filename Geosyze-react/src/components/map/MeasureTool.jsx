@@ -4,7 +4,7 @@ import styles from './MeasureTool.module.css';
 
 const ST = { IDLE: 'idle', MEASURING: 'measuring', RESULT: 'result' };
 
-export default function MeasureTool({ map }) {
+export default function MeasureTool({ map, measureCancelRef, onBeforeMeasureStart }) {
   const [state, setState] = useState(ST.IDLE);
   const [tooltipMsg, setTooltipMsg] = useState('');
   const [lastLat, setLastLat] = useState(null);
@@ -175,7 +175,15 @@ export default function MeasureTool({ map }) {
   };
 
   // ── start measuring ───────────────────────────────────────────────
+  // Expose cancelMeasure to parent (for draw ↔ measure coordination)
+  useEffect(() => {
+    if (measureCancelRef) measureCancelRef.current = cancelMeasure;
+    return () => { if (measureCancelRef) measureCancelRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measureCancelRef]);
+
   function startMeasuring() {
+    if (onBeforeMeasureStart) onBeforeMeasureStart();
     if (!ol || !map || !srcRef.current) return;
 
     if (chgRef.current) { ol.Observable.unByKey(chgRef.current); chgRef.current = null; }
