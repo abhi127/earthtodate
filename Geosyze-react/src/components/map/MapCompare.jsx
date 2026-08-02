@@ -45,7 +45,11 @@ function swapLayer(mapInstance, oldLayer, newId, onSwapped) {
   if (!ol || !mapInstance) return oldLayer;
 
   const newLayer = new ol.layer.Tile({ source: createSource(newId) });
-  mapInstance.addLayer(newLayer);   // new layer on top, old still visible underneath
+  const layers = mapInstance.getLayers();
+  // Insert at old layer's position so satellite overlays stay on top
+  const idx = oldLayer ? layers.getArray().indexOf(oldLayer) : -1;
+  if (idx >= 0) layers.insertAt(idx, newLayer);
+  else layers.push(newLayer);
 
   let done = false;
   const finish = () => {
@@ -66,7 +70,7 @@ function swapLayer(mapInstance, oldLayer, newId, onSwapped) {
   return newLayer;
 }
 
-export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onToggle }) {
+export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onToggle, onMap2Ready }) {
   const ol = window.ol;
   const map2Ref = useRef(null);
   const map2Instance = useRef(null);
@@ -77,21 +81,21 @@ export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onTo
   const [leftBase, setLeftBase] = useState(activeBasemap || 'osm');
   const [rightBase, setRightBase] = useState(() => nextBasemap(activeBasemap || 'osm'));
   const [splitPos, setSplitPos] = useState(0.5);
+  const compareActive = !!mode;
 
-  // ── Setup / teardown left side (mode change) ──────────────────────────
+  // ── Setup / teardown left side (only when entering/leaving compare mode) ──
   useEffect(() => {
-    if (!mode || !ol || !map) return;
+    if (!compareActive || !ol || !map) return;
     // Hide original basemaps
     const saved = {};
     for (const key of BASEMAP_IDS) {
       const l = basemapRefs?.[key];
       if (l) { saved[key] = l.getVisible(); l.setVisible(false); }
     }
-    // Create initial left layer
+    // Create initial left layer (at bottom so satellite overlays stay visible)
     const ll = new ol.layer.Tile({ source: createSource(leftBase) });
     const mapLayers = map.getLayers();
-    const vecIdx = mapLayers.getArray().findIndex(l => l instanceof ol.layer.Vector);
-    mapLayers.insertAt(vecIdx >= 0 ? vecIdx : mapLayers.getLength(), ll);
+    mapLayers.insertAt(0, ll);
     leftLayer.current = ll;
     requestAnimationFrame(() => map.updateSize());
 
@@ -105,7 +109,7 @@ export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onTo
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [compareActive]);
 
   // ── Left basemap switch (overlapping swap) ───────────────────────────
   useEffect(() => {
@@ -115,9 +119,9 @@ export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onTo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leftBase]);
 
-  // ── Setup / teardown right side (mode change) ─────────────────────────
+  // ── Setup / teardown right side (only when entering/leaving compare mode) ──
   useEffect(() => {
-    if (!mode || !ol || !map || !map2Ref.current) return;
+    if (!compareActive || !ol || !map || !map2Ref.current) return;
 
     const mainView = map.getView();
     const view2 = new ol.View({
@@ -136,6 +140,7 @@ export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onTo
     });
     map2Instance.current = m2;
     rightLayer.current = rl;
+    onMap2Ready?.(m2);
     requestAnimationFrame(() => m2.updateSize());
 
     // View sync: main → map2 (one-way, map2 has no interactions)
@@ -159,12 +164,13 @@ export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onTo
         mv.un('change:rotation', cb);
       }
       if (m2) m2.setTarget(null);
+      onMap2Ready?.(null);
       map2Instance.current = null;
       rightLayer.current = null;
       syncRefs.current = {};
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [compareActive]);
 
   // ── Right basemap switch (overlapping swap) ──────────────────────────
   useEffect(() => {

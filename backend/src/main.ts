@@ -13,7 +13,34 @@ async function bootstrap() {
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
   });
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+          workerSrc: ["'self'", 'blob:'],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            'https://cdn.jsdelivr.net',
+            'https://fonts.googleapis.com',
+          ],
+          fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+          imgSrc: ["'self'", 'data:', 'blob:', '*'],
+          connectSrc: [
+            "'self'",
+            'https://cdn.jsdelivr.net',
+            'https://api.open-meteo.com',
+            'https://nominatim.openstreetmap.org',
+            'https://app.earthtodate.com',
+          ],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+    }),
+  );
   const loggerMw = new RequestLoggerMiddleware();
   app.use((req, res, next) => loggerMw.use(req, res, next));
   app.useGlobalPipes(

@@ -5,7 +5,7 @@ import styles from './SatellitePanel.module.css';
 
 const PRODUCT_OPTIONS = {
   visual: 'Visual',
-  isometric: 'Isometric',
+  // isometric: 'Isometric',
   spectral: 'Spectral',
   s1: 'SAR',
   nightlight: 'Night Light',
@@ -189,7 +189,7 @@ const SENSOR_SPECTRAL_ONLY = new Set(['s2dr', 's2']);
 
 export default function SatellitePanel({ open, onViewtypeChange, right }) {
   const [product, setProduct] = useState('visual');
-  const [sensor, setSensor] = useState('s2');
+  const [sensor, setSensor] = useState(right ? 's2rr' : 's2');
   const [spectral, setSpectral] = useState('_ndvi');
   const [soilSalinity, setSoilSalinity] = useState('_soilsalinity');
   const [pollution, setPollution] = useState('_combined');

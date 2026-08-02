@@ -7,7 +7,18 @@ import styles from './MapPage.module.css';
 export default function MapPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [compareMode, setCompareMode] = useState(null);
+  const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
+  const [satellitePanelOpen2, setSatellitePanelOpen2] = useState(false);
   const mapRef = useRef(null);
+
+  const handleToggleSatellite = useCallback(() => {
+    setSatellitePanelOpen(o => !o);
+    setSatellitePanelOpen2(o => !o);
+  }, []);
+
+  const handleSearch = useCallback((lngLat, zoom) => {
+    mapRef.current?.flyTo(lngLat, zoom);
+  }, []);
 
   const handleClear = useCallback(() => {
     mapRef.current?.clearAll();
@@ -57,6 +68,9 @@ export default function MapPage() {
       case 'export-shapefile':
         mapRef.current?.exportFeatures('shapefile');
         break;
+      case 'toggle-satellite-overlay':
+        handleToggleSatellite();
+        break;
       case 'help-about':
         alert('GEOSYZE v1.0 \u2014 GIS Intelligence Platform');
         break;
@@ -66,15 +80,15 @@ export default function MapPage() {
       default:
         break;
     }
-  }, [handleClear]);
+  }, [handleClear, handleToggleSatellite]);
 
   return (
     <div className={styles.page}>
-      <TopBar onToggleSidebar={() => setSidebarOpen((o) => !o)} onMenuAction={handleMenuAction} compareMode={compareMode} setCompareMode={setCompareMode} />
+      <TopBar onToggleSidebar={() => setSidebarOpen((o) => !o)} onMenuAction={handleMenuAction} compareMode={compareMode} setCompareMode={setCompareMode} satelliteActive={satellitePanelOpen || satellitePanelOpen2} onSearch={handleSearch} />
       <div className={styles.body}>
         <Sidebar isOpen={sidebarOpen} />
         <main className={styles.mapArea}>
-          <MapView ref={mapRef} compareMode={compareMode} setCompareMode={setCompareMode} />
+          <MapView ref={mapRef} compareMode={compareMode} setCompareMode={setCompareMode} satellitePanelOpen={satellitePanelOpen} setSatellitePanelOpen={setSatellitePanelOpen} satellitePanelOpen2={satellitePanelOpen2} setSatellitePanelOpen2={setSatellitePanelOpen2} />
         </main>
       </div>
     </div>

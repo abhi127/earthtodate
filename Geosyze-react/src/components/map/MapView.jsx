@@ -18,7 +18,7 @@ const BASEMAP_DEFS = [
   { id: 'dark',      name: 'Dark',    thumbnail: 'https://a.basemaps.cartocdn.com/dark_all/3/4/2.png' },
 ];
 
-const MapView = forwardRef(function MapView({ compareMode, setCompareMode }, ref) {
+const MapView = forwardRef(function MapView({ compareMode, setCompareMode, satellitePanelOpen, setSatellitePanelOpen, satellitePanelOpen2, setSatellitePanelOpen2 }, ref) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const vectorSource = useRef(null);
@@ -31,12 +31,11 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode }, ref
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [drawType, setDrawType] = useState(null);
   const [pillExportOpen, setPillExportOpen] = useState(false);
-  const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
-  const [satellitePanelOpen2, setSatellitePanelOpen2] = useState(false);
   const cancelMeasureRef = useRef(null);
   const switcherRef = useRef(null);
   const satelliteLayerRef = useRef(null);
   const satelliteLayerRef2 = useRef(null);
+  const map2Ref = useRef(null);
 
   // Close switcher on outside click
   useEffect(() => {
@@ -422,6 +421,17 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode }, ref
       if (vectorSource.current) vectorSource.current.clear();
       deactivateDraw();
     },
+
+    flyTo(lngLat, zoom = 16) {
+      const ol = window.ol;
+      const map = mapInstance.current;
+      if (!ol || !map || !lngLat) return;
+      map.getView().animate({
+        center: ol.proj.fromLonLat(lngLat),
+        zoom,
+        duration: 600,
+      });
+    },
   }));
 
   // ── Satellite tile layer management ───────────────────────────────
@@ -474,27 +484,25 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode }, ref
     });
   }
 
-  function setSatelliteLayer(ref, viewtype, date, months) {
-    const map = mapInstance.current;
+  function setSatelliteLayer(mapInstance, ref, viewtype, date, months) {
     const ol = window.ol;
-    if (!map || !ol) return;
+    if (!mapInstance || !ol) return;
     // Remove old layer
-    if (ref.current) { map.removeLayer(ref.current); ref.current = null; }
+    if (ref.current) { mapInstance.removeLayer(ref.current); ref.current = null; }
     if (!viewtype) return;
     const source = createSatelliteSource(viewtype, date, months);
     if (!source) return;
     const layer = new ol.layer.Tile({ source, visible: true });
     // Insert above basemaps but below vector layer
-    const layers = map.getLayers();
+    const layers = mapInstance.getLayers();
     const vecIdx = layers.getArray().findIndex(l => l instanceof ol.layer.Vector);
     layers.insertAt(vecIdx >= 0 ? vecIdx : layers.getLength(), layer);
     ref.current = layer;
   }
 
-  function removeSatelliteLayer(ref) {
-    const map = mapInstance.current;
-    if (!map || !ref.current) return;
-    map.removeLayer(ref.current);
+  function removeSatelliteLayer(mapInstance, ref) {
+    if (!mapInstance || !ref.current) return;
+    mapInstance.removeLayer(ref.current);
     ref.current = null;
   }
 
@@ -506,32 +514,34 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode }, ref
     satelliteStateRef.current = { viewtype, date, months };
     if (!satellitePanelOpen) return;
     const actual = await resolveR5mViewtype(viewtype, date, r5mActualRef);
-    setSatelliteLayer(satelliteLayerRef, actual, date, months);
+    setSatelliteLayer(mapInstance.current, satelliteLayerRef, actual, date, months);
   }, [satellitePanelOpen]);
   const handleSatelliteViewtype2 = useCallback(async ({ viewtype, date, months }) => {
     satelliteStateRef2.current = { viewtype, date, months };
     if (!satellitePanelOpen2) return;
     const actual = await resolveR5mViewtype(viewtype, date, r5mActualRef2);
-    setSatelliteLayer(satelliteLayerRef2, actual, date, months);
+    setSatelliteLayer(map2Ref.current || mapInstance.current, satelliteLayerRef2, actual, date, months);
   }, [satellitePanelOpen2]);
 
   // Show/hide satellite layers when panels open/close
   // For r5m_tci: skip here, handled async above
   useEffect(() => {
     if (satellitePanelOpen) {
+      mapInstance.current?.getView().animate({ zoom: 16, duration: 500 });
       const s = satelliteStateRef.current;
-      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(satelliteLayerRef, s.viewtype, s.date, s.months);
+      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(mapInstance.current, satelliteLayerRef, s.viewtype, s.date, s.months);
     } else {
-      removeSatelliteLayer(satelliteLayerRef);
+      removeSatelliteLayer(mapInstance.current, satelliteLayerRef);
     }
   }, [satellitePanelOpen]);
 
   useEffect(() => {
+    const target = map2Ref.current || mapInstance.current;
     if (satellitePanelOpen2) {
       const s = satelliteStateRef2.current;
-      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(satelliteLayerRef2, s.viewtype, s.date, s.months);
+      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(target, satelliteLayerRef2, s.viewtype, s.date, s.months);
     } else {
-      removeSatelliteLayer(satelliteLayerRef2);
+      removeSatelliteLayer(target, satelliteLayerRef2);
     }
   }, [satellitePanelOpen2]);
 
@@ -567,7 +577,7 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode }, ref
       <div ref={mapRef} className={styles.map}></div>
       <MapOverlay coords={coords} zoom={zoom} />
       {mapReady && <MeasureTool map={mapInstance.current} measureCancelRef={cancelMeasureRef} onBeforeMeasureStart={handleBeforeMeasureStart} />}
-      {mapReady && <MapControls map={mapInstance.current} onToggleSatellite={() => { setSatellitePanelOpen(o => !o); setSatellitePanelOpen2(o => !o); }} satelliteActive={satellitePanelOpen || satellitePanelOpen2} />}
+      {mapReady && <MapControls map={mapInstance.current} />}
       {mapReady && (
         <MapCompare
           map={mapInstance.current}
@@ -575,7 +585,7 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode }, ref
           basemapRefs={basemapRefs.current}
           activeBasemap={activeBasemap}
           onToggle={setCompareMode}
-
+          onMap2Ready={m2 => { map2Ref.current = m2; }}
         />
       )}
 

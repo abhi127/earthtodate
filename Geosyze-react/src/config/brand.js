@@ -1,5 +1,5 @@
 const brand = {
-  name: 'GEOSYZE',
+  name: 'GEOSYZE HUB',
   tagline: 'GIS Intelligence Platform',
   colors: {
     primary: '#22C55E',

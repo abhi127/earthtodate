@@ -45,6 +45,7 @@ function Dropdown({ menu, items, onAction }) {
                         <div key={j} className={styles.separator} />
                       ) : (
                         <button key={j} className={styles.dropItem} onClick={() => { setOpen(false); setSubOpen(null); onAction(sub.action); }}>
+                          {sub.checked && <span className={styles.checkmark}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>}
                           {sub.label}
                         </button>
                       )
@@ -54,6 +55,7 @@ function Dropdown({ menu, items, onAction }) {
               </div>
             ) : (
               <button key={i} className={styles.dropItem} onClick={() => { setOpen(false); onAction(item.action); }}>
+                {item.checked && <span className={styles.checkmark}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>}
                 {item.label}
               </button>
             )
@@ -64,7 +66,7 @@ function Dropdown({ menu, items, onAction }) {
   );
 }
 
-export default function MenuBar({ onMenuAction }) {
+export default function MenuBar({ onMenuAction, satelliteActive }) {
   const menus = [
     {
       name: 'File',
@@ -106,7 +108,12 @@ export default function MenuBar({ onMenuAction }) {
         { label: 'Clear All', action: 'draw-clear' },
       ],
     },
-
+    {
+      name: 'Layers',
+      items: [
+        { label: 'Earth to Date', action: 'toggle-satellite-overlay', checked: satelliteActive },
+      ],
+    },
     {
       name: 'Help',
       items: [
