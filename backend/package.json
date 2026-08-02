@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "npm run build:frontend && nest build",
+    "build:frontend": "cd ../Geosyze-react && npm install --no-audit --no-fund && npm run build",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
