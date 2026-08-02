@@ -9,7 +9,7 @@ import { UsersModule } from './users/users.module';
 import { GisModule } from './gis/gis.module';
 import { TilesModule } from './tiles/tiles.module';
 
-const frontendDist = process.env.FRONTEND_DIST || '../Geosyze-react/dist';
+const frontendDist = process.env.FRONTEND_DIST || 'public';
 
 @Module({
   imports: [

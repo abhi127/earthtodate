@@ -9,7 +9,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: process.env.PORT || 3000,
-        FRONTEND_DIST: '../Geosyze-react/dist',
+        FRONTEND_DIST: 'public',
       },
     },
   ],

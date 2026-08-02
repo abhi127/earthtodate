@@ -24,7 +24,7 @@ npm run seed
 
 echo ""
 echo "Build complete."
-echo "  frontend dist : $REPO_DIR/Geosyze-react/dist"
+echo "  frontend build : $REPO_DIR/backend/public (served by NestJS)"
 echo "  backend dist  : $REPO_DIR/backend/dist"
 echo ""
 echo "Before first start, create production env:"
