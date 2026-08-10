@@ -18,11 +18,21 @@ const BASEMAP_DEFS = [
   { id: 'dark',      name: 'Dark',    thumbnail: 'https://a.basemaps.cartocdn.com/dark_all/3/4/2.png' },
 ];
 
-const MapView = forwardRef(function MapView({ compareMode, setCompareMode, satellitePanelOpen, setSatellitePanelOpen, satellitePanelOpen2, setSatellitePanelOpen2 }, ref) {
+const MapView = forwardRef(function MapView({ 
+  compareMode, 
+  setCompareMode, 
+  satellitePanelOpen, 
+  setSatellitePanelOpen, 
+  satellitePanelOpen2, 
+  setSatellitePanelOpen2,
+  onCenterChange,
+  center: initialCenter
+}, ref) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const vectorSource = useRef(null);
   const basemapRefs = useRef({});
+  const [center, setCenter] = useState(initialCenter ?? { lat: 20.5937, lon: 78.9629 });
   const drawInteractionRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [coords, setCoords] = useState('Lon: \u2014  Lat: \u2014');
@@ -128,12 +138,33 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode, satel
       setZoom(`Zoom: ${map.getView().getZoom().toFixed(1)}`);
     });
 
+    // Track center changes for calendar API
+    let centerTimeout;
+    const handleCenterChange = () => {
+      clearTimeout(centerTimeout);
+      centerTimeout = setTimeout(() => {
+        const view = map.getView();
+        const center = view.getCenter();
+        if (center) {
+          const ll = ol.proj.toLonLat(center);
+          const newCenter = { lat: ll[1], lon: ll[0] };
+          setCenter(newCenter);
+          if (onCenterChange) {
+            onCenterChange([ll[0], ll[1]]);
+          }
+        }
+      }, 150); // debounce
+    };
+    map.getView().on('change:center', handleCenterChange);
+
     return () => {
+      clearTimeout(centerTimeout);
+      map.getView().un('change:center', handleCenterChange);
       map.setTarget(null);
       mapInstance.current = null;
       setMapReady(false);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onCenterChange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchBasemap = useCallback((val) => {
     const layers = Object.values(basemapRefs.current).filter(Boolean);
@@ -617,6 +648,8 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode, satel
       <SatellitePanel
         open={satellitePanelOpen}
         onViewtypeChange={handleSatelliteViewtype}
+        lat={center?.lat ?? 20.5937}
+        lon={center?.lon ?? 78.9629}
       />
       {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
       {compareMode && (
@@ -624,6 +657,8 @@ const MapView = forwardRef(function MapView({ compareMode, setCompareMode, satel
           open={satellitePanelOpen2}
           onViewtypeChange={handleSatelliteViewtype2}
           right
+          lat={center?.lat ?? 20.5937}
+          lon={center?.lon ?? 78.9629}
         />
       )}
       {compareMode && satellitePanelOpen2 && <SatelliteLegend viewtype={satelliteStateRef2.current.viewtype} right />}

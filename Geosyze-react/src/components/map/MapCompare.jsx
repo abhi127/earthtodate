@@ -136,32 +136,52 @@ export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onTo
       layers: [rl],
       view: view2,
       controls: [],
-      interactions: [],
+      interactions: ol.interaction.defaults(),
     });
     map2Instance.current = m2;
     rightLayer.current = rl;
     onMap2Ready?.(m2);
     requestAnimationFrame(() => m2.updateSize());
 
-    // View sync: main → map2 (one-way, map2 has no interactions)
-    const syncM2 = () => {
-      if (!guard.current) {
-        view2.setCenter(mainView.getCenter());
-        view2.setResolution(mainView.getResolution());
-        view2.setRotation(mainView.getRotation());
-      }
+    // View sync: bidirectional, guarded against feedback loops.
+    // Main map ↔ map2: pan/zoom/rotate on either side moves the other.
+    // The guard check at entry is critical: without it the echo back into an
+    // animating view cancels its zoom/rotate animation (View.applyTargetState_).
+    const syncToM2 = () => {
+      if (guard.current) return;
+      guard.current = true;
+      view2.setCenter(mainView.getCenter());
+      view2.setResolution(mainView.getResolution());
+      view2.setRotation(mainView.getRotation());
+      guard.current = false;
     };
-    mainView.on('change:center', syncM2);
-    mainView.on('change:resolution', syncM2);
-    mainView.on('change:rotation', syncM2);
-    syncRefs.current = { mainView, view2, syncM2 };
+    const syncToMain = () => {
+      if (guard.current) return;
+      guard.current = true;
+      mainView.setCenter(view2.getCenter());
+      mainView.setResolution(view2.getResolution());
+      mainView.setRotation(view2.getRotation());
+      guard.current = false;
+    };
+    mainView.on('change:center', syncToM2);
+    mainView.on('change:resolution', syncToM2);
+    mainView.on('change:rotation', syncToM2);
+    view2.on('change:center', syncToMain);
+    view2.on('change:resolution', syncToMain);
+    view2.on('change:rotation', syncToMain);
+    syncRefs.current = { mainView, view2, syncToM2, syncToMain };
 
     return () => {
-      const { mainView: mv, view2: v2, syncM2: cb } = syncRefs.current;
-      if (mv && cb) {
-        mv.un('change:center', cb);
-        mv.un('change:resolution', cb);
-        mv.un('change:rotation', cb);
+      const { mainView: mv, view2: v2, syncToM2: cbM2, syncToMain: cbMain } = syncRefs.current;
+      if (mv && cbM2) {
+        mv.un('change:center', cbM2);
+        mv.un('change:resolution', cbM2);
+        mv.un('change:rotation', cbM2);
+      }
+      if (v2 && cbMain) {
+        v2.un('change:center', cbMain);
+        v2.un('change:resolution', cbMain);
+        v2.un('change:rotation', cbMain);
       }
       if (m2) m2.setTarget(null);
       onMap2Ready?.(null);

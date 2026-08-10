@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import DateCalendar from './DateCalendar';
 import styles from './SatellitePanel.module.css';
 
 // ── Constants (mirrored from ui.js) ─────────────────────────────────────
@@ -187,7 +188,7 @@ function computeViewtype({ product, sensor, spectral, soilSalinity, pollution, p
 
 const SENSOR_SPECTRAL_ONLY = new Set(['s2dr', 's2']);
 
-export default function SatellitePanel({ open, onViewtypeChange, right }) {
+export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon }) {
   const [product, setProduct] = useState('visual');
   const [sensor, setSensor] = useState(right ? 's2rr' : 's2');
   const [spectral, setSpectral] = useState('_ndvi');
@@ -198,6 +199,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right }) {
   const [s1Subview, setS1Subview] = useState('vvsr');
   const [newConstMonths, setNewConstMonths] = useState('12');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const viewtype = computeViewtype({
     product, sensor, spectral, soilSalinity, pollution, pollutionMode,
@@ -229,6 +231,16 @@ export default function SatellitePanel({ open, onViewtypeChange, right }) {
     setProduct(val);
     if (val === 'spectral' && !SENSOR_SPECTRAL_ONLY.has(sensor)) setSensor('s2');
   }, [sensor]);
+
+  const formatDisplayDate = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const handleDateSelect = (newDate) => {
+    setDate(newDate);
+    setCalendarOpen(false);
+  };
 
   if (!open) return null;
 
@@ -289,7 +301,21 @@ export default function SatellitePanel({ open, onViewtypeChange, right }) {
       </select>
     )}] : []),
     ...(showDate ? [{ key: 'date', el: (
-      <input key="date" type="date" className={styles.dateInput} value={date} onChange={e => setDate(e.target.value)} />
+      <button
+        key="date"
+        type="button"
+        className={styles.dateTrigger}
+        onClick={() => setCalendarOpen(true)}
+        title="Select date from calendar"
+      >
+        <span className={styles.dateTriggerText}>{formatDisplayDate(date)}</span>
+        <svg className={styles.dateTriggerIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </button>
     )}] : []),
   ];
 
@@ -297,15 +323,26 @@ export default function SatellitePanel({ open, onViewtypeChange, right }) {
   const row2 = controls.slice(3);
 
   return (
-    <div className={`${styles.bar} ${right ? styles.barRight : ''}`}>
-      <div className={styles.row}>
-        {row1.map(c => c.el)}
-      </div>
-      {row2.length > 0 && (
+    <>
+      <div className={`${styles.bar} ${right ? styles.barRight : ''}`}>
         <div className={styles.row}>
-          {row2.map(c => c.el)}
+          {row1.map(c => c.el)}
         </div>
-      )}
-    </div>
+        {row2.length > 0 && (
+          <div className={styles.row}>
+            {row2.map(c => c.el)}
+          </div>
+        )}
+      </div>
+      <DateCalendar
+        isOpen={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        onDateSelect={handleDateSelect}
+        lat={lat}
+        lon={lon}
+        viewtype={viewtype}
+        selectedDate={date}
+      />
+    </>
   );
 }

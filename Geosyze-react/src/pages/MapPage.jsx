@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import TopBar from '../components/layout/TopBar';
 import Sidebar from '../components/layout/Sidebar';
 import MapView from '../components/map/MapView';
@@ -9,6 +9,7 @@ export default function MapPage() {
   const [compareMode, setCompareMode] = useState(null);
   const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
   const [satellitePanelOpen2, setSatellitePanelOpen2] = useState(false);
+  const [mapCenter, setMapCenter] = useState({ lat: 20.5937, lon: 78.9629 });
   const mapRef = useRef(null);
 
   const handleToggleSatellite = useCallback(() => {
@@ -82,13 +83,31 @@ export default function MapPage() {
     }
   }, [handleClear, handleToggleSatellite]);
 
+  // Track map center for calendar API
+  const handleCenterChange = useCallback((center) => {
+    if (center) {
+      const [lon, lat] = center;
+      setMapCenter({ lat, lon });
+    }
+  }, []);
+
   return (
     <div className={styles.page}>
       <TopBar onToggleSidebar={() => setSidebarOpen((o) => !o)} onMenuAction={handleMenuAction} compareMode={compareMode} setCompareMode={setCompareMode} satelliteActive={satellitePanelOpen || satellitePanelOpen2} onSearch={handleSearch} />
       <div className={styles.body}>
         <Sidebar isOpen={sidebarOpen} />
         <main className={styles.mapArea}>
-          <MapView ref={mapRef} compareMode={compareMode} setCompareMode={setCompareMode} satellitePanelOpen={satellitePanelOpen} setSatellitePanelOpen={setSatellitePanelOpen} satellitePanelOpen2={satellitePanelOpen2} setSatellitePanelOpen2={setSatellitePanelOpen2} />
+          <MapView
+            ref={mapRef}
+            compareMode={compareMode}
+            setCompareMode={setCompareMode}
+            satellitePanelOpen={satellitePanelOpen}
+            setSatellitePanelOpen={setSatellitePanelOpen}
+            satellitePanelOpen2={satellitePanelOpen2}
+            setSatellitePanelOpen2={setSatellitePanelOpen2}
+            onCenterChange={handleCenterChange}
+            center={mapCenter}
+          />
         </main>
       </div>
     </div>
