@@ -186,7 +186,7 @@ export default function MeasureTool({ map, measureCancelRef, onBeforeMeasureStar
     if (onBeforeMeasureStart) onBeforeMeasureStart();
     if (!ol || !map || !srcRef.current) return;
 
-    if (chgRef.current) { ol.Observable.unByKey(chgRef.current); chgRef.current = null; }
+    if (chgRef.current) { ol.unByKey(chgRef.current); chgRef.current = null; }
     hidePopup();
     setDblActive(false);
 
@@ -202,7 +202,7 @@ export default function MeasureTool({ map, measureCancelRef, onBeforeMeasureStar
       setShowArea(false);
       setLiveArea(0);
 
-      if (chgRef.current) ol.Observable.unByKey(chgRef.current);
+      if (chgRef.current) ol.unByKey(chgRef.current);
       const geom = evt.feature.getGeometry();
       chgRef.current = geom.on('change', function () {
         const coords = this.getCoordinates();
@@ -233,7 +233,7 @@ export default function MeasureTool({ map, measureCancelRef, onBeforeMeasureStar
     });
 
     draw.on('drawend', (evt) => {
-      if (chgRef.current) { ol.Observable.unByKey(chgRef.current); chgRef.current = null; }
+      if (chgRef.current) { ol.unByKey(chgRef.current); chgRef.current = null; }
       const coords = evt.feature.getGeometry().getCoordinates();
       // Remove draw interaction — its internal sketch vanishes with it
       if (drawRef.current && map) { map.removeInteraction(drawRef.current); drawRef.current = null; }
@@ -262,7 +262,7 @@ export default function MeasureTool({ map, measureCancelRef, onBeforeMeasureStar
   function cancelMeasure() {
     setDblActive(true);
     hidePopup();
-    if (chgRef.current) { ol.Observable.unByKey(chgRef.current); chgRef.current = null; }
+    if (chgRef.current) { ol.unByKey(chgRef.current); chgRef.current = null; }
     if (drawRef.current && map) { map.removeInteraction(drawRef.current); drawRef.current = null; }
     sketchRef.current = null;
     setState(ST.IDLE);
@@ -271,7 +271,7 @@ export default function MeasureTool({ map, measureCancelRef, onBeforeMeasureStar
   // ── done ───────────────────────────────────────────────────────────
   function doneMeasuring() {
     if (!sketchRef.current || !drawRef.current || !map || !srcRef.current || !ol) return;
-    if (chgRef.current) { ol.Observable.unByKey(chgRef.current); chgRef.current = null; }
+    if (chgRef.current) { ol.unByKey(chgRef.current); chgRef.current = null; }
     const coords = sketchRef.current.getGeometry().getCoordinates();
     // Remove draw interaction — sketch vanishes with it
     map.removeInteraction(drawRef.current); drawRef.current = null;

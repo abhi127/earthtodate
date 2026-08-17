@@ -6,6 +6,7 @@ import MapControls from './MapControls';
 import MapCompare from './MapCompare';
 import SatellitePanel from './SatellitePanel';
 import SatelliteLegend from './SatelliteLegend';
+import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
 import styles from './MapView.module.css';
 
 const BASEMAP_DEFS = [
@@ -126,6 +127,7 @@ const MapView = forwardRef(function MapView({
 
     mapInstance.current = map;
     setMapReady(true);
+    loadIndiaCompositeLayer(map);
 
     map.on('pointermove', (e) => {
       if (e.coordinate) {

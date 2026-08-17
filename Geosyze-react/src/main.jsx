@@ -12,6 +12,7 @@ import * as style from 'ol/style';
 import * as geom from 'ol/geom';
 import * as sphere from 'ol/sphere';
 import * as extent from 'ol/extent';
+import { unByKey } from 'ol/Observable.js';
 import 'ol/ol.css';
 import App from './App';
 import { ThemeProvider } from './context/ThemeContext';
@@ -20,7 +21,7 @@ import './App.css';
 
 // ponytail: shim composing the namespaced global the components read via `window.ol`
 // (v10 npm package doesn't export namespaces from the root `ol` entry like the old CDN full build did)
-window.ol = { ...ol, proj, source, layer, control, interaction, format, style, geom, sphere, extent };
+window.ol = { ...ol, proj, source, layer, control, interaction, format, style, geom, sphere, extent, unByKey };
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

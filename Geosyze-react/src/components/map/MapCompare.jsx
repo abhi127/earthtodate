@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
 import styles from './MapView.module.css';
 
 const BASEMAP_NAMES = {
@@ -140,6 +141,7 @@ export default function MapCompare({ map, mode, basemapRefs, activeBasemap, onTo
     });
     map2Instance.current = m2;
     rightLayer.current = rl;
+    loadIndiaCompositeLayer(m2);
     onMap2Ready?.(m2);
     requestAnimationFrame(() => m2.updateSize());
 

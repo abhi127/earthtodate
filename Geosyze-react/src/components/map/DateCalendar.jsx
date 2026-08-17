@@ -261,9 +261,9 @@ export default function DateCalendar({
         <div className={styles.legend}>
           <span>Cloud coverage:</span>
           <div className={styles.legendItems}>
-            <div className={styles.legendItem}><span className={styles.legendDot} style={{ background: 'var(--primary, #22C55E)' }} /> \u226420%</div>
-            <div className={styles.legendItem}><span className={styles.legendDot} style={{ background: 'var(--warning, #FBBF24)' }} /> 20\u201350%</div>
-            <div className={styles.legendItem}><span className={styles.legendDot} style={{ background: 'var(--error, #EF4444)' }} /> \u003E50%</div>
+            <div className={styles.legendItem}><span className={styles.legendDot} style={{ background: 'var(--primary, #22C55E)' }} /> ≤20%</div>
+            <div className={styles.legendItem}><span className={styles.legendDot} style={{ background: 'var(--warning, #FBBF24)' }} /> 20–50%</div>
+            <div className={styles.legendItem}><span className={styles.legendDot} style={{ background: 'var(--error, #EF4444)' }} /> {'\u003E'}50%</div>
           </div>
         </div>
       </div>
