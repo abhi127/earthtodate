@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 
-const API_URL = '/api';
-
 export default function useElevation(lat, lon, debounceMs = 300) {
   const [elevation, setElevation] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,12 +21,12 @@ export default function useElevation(lat, lon, debounceMs = 300) {
       setLoading(true);
       try {
         const res = await fetch(
-          `${API_URL}/tiles/dem?lat=${lat}&lon=${lon}`
+          `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`
         );
         if (!res.ok) throw new Error('Elevation fetch failed');
         const data = await res.json();
-        if (typeof data.fusion === 'number') {
-          setElevation(data.fusion);
+        if (data.elevation && data.elevation.length > 0) {
+          setElevation(data.elevation[0]);
         }
       } catch {
         setElevation(null);

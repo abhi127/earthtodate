@@ -38,6 +38,7 @@ const MapView = forwardRef(function MapView({
   const [mapReady, setMapReady] = useState(false);
   const [coords, setCoords] = useState('Lon: \u2014  Lat: \u2014');
   const [zoom, setZoom] = useState('Zoom: \u2014');
+  const [resolution, setResolution] = useState('Res: \u2014');
   const [activeBasemap, setActiveBasemap] = useState('osm');
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [drawType, setDrawType] = useState(null);
@@ -137,7 +138,9 @@ const MapView = forwardRef(function MapView({
     });
 
     map.getView().on('change:resolution', () => {
-      setZoom(`Zoom: ${map.getView().getZoom().toFixed(1)}`);
+      const view = map.getView();
+      setZoom(`Zoom: ${view.getZoom().toFixed(1)}`);
+      setResolution(`Res: ${view.getResolution().toFixed(2)} m/px`);
     });
 
     // Track center changes for calendar API
@@ -608,7 +611,7 @@ const MapView = forwardRef(function MapView({
   return (
     <div className={containerClass}>
       <div ref={mapRef} className={styles.map}></div>
-      <MapOverlay coords={coords} zoom={zoom} />
+      <MapOverlay coords={coords} zoom={zoom} resolution={resolution} />
       {mapReady && <MeasureTool map={mapInstance.current} measureCancelRef={cancelMeasureRef} onBeforeMeasureStart={handleBeforeMeasureStart} />}
       {mapReady && <MapControls map={mapInstance.current} />}
       {mapReady && (
