@@ -1,7 +1,7 @@
 .bar {
   position: absolute;
   top: 12px;
-  left: 12px;
+  left: 64px;
   z-index: 100;
   max-width: 50vw;
   display: flex;
@@ -19,6 +19,43 @@
 .barRight {
   left: auto;
   right: 12px;
+}
+
+.rail {
+  order: -1;
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem;
+  background: var(--surface, #1E293B);
+  border-right: 1px solid var(--border, #334155);
+}
+
+.railBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  color: var(--textMuted, #94A3B8);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.railBtn:hover {
+  color: var(--text, #F8FAFC);
+  background: var(--surfaceAlt, #334155);
+}
+.railActive {
+  color: var(--primary, #22C55E) !important;
+  border-color: var(--primary, #22C55E) !important;
+  background: rgba(34, 197, 94, 0.1) !important;
 }
 
 .select {

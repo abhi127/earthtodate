@@ -238,7 +238,7 @@ function LegendBody({ viewtype }) {
 
 // ── Main component ───────────────────────────────────────────────
 
-export default function SatelliteLegend({ viewtype, right }) {
+export default function SatelliteLegend({ viewtype, right, docked }) {
   if (!viewtype) return null;
 
   const showFor = [
@@ -254,7 +254,7 @@ export default function SatelliteLegend({ viewtype, right }) {
   if (!visible) return null;
 
   return (
-    <div className={`${styles.legend} ${right ? styles.right : ''}`}>
+    <div className={`${styles.legend} ${right ? styles.right : ''} ${docked ? styles.docked : ''}`}>
       <LegendBody viewtype={viewtype} />
     </div>
   );

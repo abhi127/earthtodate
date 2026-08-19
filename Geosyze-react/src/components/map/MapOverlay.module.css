@@ -14,8 +14,12 @@
   white-space: nowrap;
 }
 
+.docked {
+  left: 64px;
+}
+
 .coords {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--text, #F8FAFC);
   font-variant-numeric: tabular-nums;
   min-width: 16em;
@@ -29,13 +33,13 @@
 }
 
 .text {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--text, #F8FAFC);
   font-variant-numeric: tabular-nums;
 }
 
 .divider {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   color: var(--textMuted, #94A3B8);
   opacity: 0.6;
 }

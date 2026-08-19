@@ -145,6 +145,47 @@ const NO_DATE_PRODUCTS = new Set([
   'map', 'aerial', 'esriworldimagery', 'basemap', 'dem', 'worldcover', 'pollution',
 ]);
 
+const RAIL_CATEGORIES = {
+  visual: {
+    label: 'Visual',
+    products: ['visual', 'spectral', 's1', 'nightlight'],
+  },
+  ai: {
+    label: 'AI',
+    products: ['changes_tci', '_scl', '_lulc', '_soilmoisture'],
+  },
+  analytics: {
+    label: 'Analytics',
+    products: [
+      'map', 'aerial', 'esriworldimagery', 'basemap', 'dem', 'worldcover',
+      '_bgwaterleak', 'flood', '_biomassgrassland', 'newconstruction',
+      'soilsalinity', 'pollution', '_mineralmap',
+    ],
+  },
+};
+
+const CATEGORY_ICONS = {
+  visual: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  ),
+  ai: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>
+      <path d="M19 15l.9 2.4L22 18l-2.1.6L19 21l-.9-2.4L16 18l2.1-.6z"/>
+    </svg>
+  ),
+  analytics: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="20" x2="12" y2="10"/>
+      <line x1="18" y1="20" x2="18" y2="4"/>
+      <line x1="6" y1="20" x2="6" y2="16"/>
+    </svg>
+  ),
+};
+
 const S2R2M_PRODUCTS = new Set([
   '_soilmoisture', '_fieldanomaly', '_bgwaterleak',
   '_biomassgrassland', '_lulc', '_mineralmap',
@@ -188,7 +229,7 @@ function computeViewtype({ product, sensor, spectral, soilSalinity, pollution, p
 
 const SENSOR_SPECTRAL_ONLY = new Set(['s2dr', 's2']);
 
-export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon }) {
+export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon, category, onCategoryChange }) {
   const [product, setProduct] = useState('visual');
   const [sensor, setSensor] = useState(right ? 's2rr' : 's2');
   const [spectral, setSpectral] = useState('_ndvi');
@@ -200,6 +241,13 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
   const [newConstMonths, setNewConstMonths] = useState('12');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Shared rail category changed → reset this panel's product if it no longer fits
+  useEffect(() => {
+    const list = RAIL_CATEGORIES[category].products;
+    if (!list.includes(product)) setProduct(list[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
 
   const viewtype = computeViewtype({
     product, sensor, spectral, soilSalinity, pollution, pollutionMode,
@@ -245,11 +293,12 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
   if (!open) return null;
 
   // Build visible control list
+  const categoryProducts = RAIL_CATEGORIES[category].products;
   const controls = [
     { key: 'product', el: (
       <select key="product" className={styles.select} value={product} onChange={handleProductChange}>
-        {Object.entries(PRODUCT_OPTIONS).map(([k, label]) => (
-          <option key={k} value={k}>{label}</option>
+        {categoryProducts.map(k => (
+          <option key={k} value={k}>{PRODUCT_OPTIONS[k]}</option>
         ))}
       </select>
     )},
@@ -324,6 +373,21 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
 
   return (
     <>
+      {!right && (
+        <div className={styles.rail}>
+          {Object.entries(RAIL_CATEGORIES).map(([k, cat]) => (
+            <button
+              key={k}
+              type="button"
+              className={`${styles.railBtn} ${category === k ? styles.railActive : ''}`}
+              onClick={() => onCategoryChange(k)}
+              title={cat.label}
+            >
+              {CATEGORY_ICONS[k]}
+            </button>
+          ))}
+        </div>
+      )}
       <div className={`${styles.bar} ${right ? styles.barRight : ''}`}>
         <div className={styles.row}>
           {row1.map(c => c.el)}

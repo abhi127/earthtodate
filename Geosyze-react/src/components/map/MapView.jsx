@@ -43,6 +43,7 @@ const MapView = forwardRef(function MapView({
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [drawType, setDrawType] = useState(null);
   const [pillExportOpen, setPillExportOpen] = useState(false);
+  const [satCategory, setSatCategory] = useState('visual');
   const cancelMeasureRef = useRef(null);
   const switcherRef = useRef(null);
   const satelliteLayerRef = useRef(null);
@@ -605,13 +606,14 @@ const MapView = forwardRef(function MapView({
   }, [compareMode]);
 
   let containerClass = styles.container;
+  if (satellitePanelOpen && !compareMode) containerClass += ` ${styles.satelliteOpen}`;
   if (compareMode === 'compare') containerClass += ` ${styles.compareActive}`;
   else if (compareMode === 'swipe') containerClass += ` ${styles.compareActive} ${styles.compareSwipeMode}`;
 
   return (
     <div className={containerClass}>
       <div ref={mapRef} className={styles.map}></div>
-      <MapOverlay coords={coords} zoom={zoom} resolution={resolution} />
+      <MapOverlay coords={coords} zoom={zoom} resolution={resolution} docked={satellitePanelOpen} />
       {mapReady && <MeasureTool map={mapInstance.current} measureCancelRef={cancelMeasureRef} onBeforeMeasureStart={handleBeforeMeasureStart} />}
       {mapReady && <MapControls map={mapInstance.current} />}
       {mapReady && (
@@ -655,8 +657,10 @@ const MapView = forwardRef(function MapView({
         onViewtypeChange={handleSatelliteViewtype}
         lat={center?.lat ?? 20.5937}
         lon={center?.lon ?? 78.9629}
+        category={satCategory}
+        onCategoryChange={setSatCategory}
       />
-      {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
+      {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} docked />}
       {compareMode && (
         <SatellitePanel
           open={satellitePanelOpen2}
@@ -664,6 +668,8 @@ const MapView = forwardRef(function MapView({
           right
           lat={center?.lat ?? 20.5937}
           lon={center?.lon ?? 78.9629}
+          category={satCategory}
+          onCategoryChange={setSatCategory}
         />
       )}
       {compareMode && satellitePanelOpen2 && <SatelliteLegend viewtype={satelliteStateRef2.current.viewtype} right />}
