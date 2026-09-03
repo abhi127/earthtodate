@@ -12,7 +12,7 @@ export class TilesController {
 
   private getForwardHeaders(req: Request): Record<string, string> {
     const h: Record<string, string> = {};
-    const fwd = ['user-agent', 'accept', 'referer', 'accept-encoding', 'cookie', 'origin'];
+    const fwd = ['user-agent', 'accept', 'referer', 'accept-encoding', 'origin'];
     for (const key of fwd) {
       const val = req.headers[key];
       if (val) h[key] = Array.isArray(val) ? val[0] : val;

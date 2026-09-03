@@ -7,7 +7,79 @@ import MapCompare from './MapCompare';
 import SatellitePanel from './SatellitePanel';
 import SatelliteLegend from './SatelliteLegend';
 import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
+import {Tile} from 'ol/layer'
 import styles from './MapView.module.css';
+
+// ponytail: coalesced satellite tile loader. Pan/zoom bursts ask OL to fetch many
+// tiles at once; we hold them back (debounced) until the map has been still for
+// STILL_DELAY ms, then flush at MAX_CONCURRENT_TILES fetches at a time. Debounce
+// prevents firing a flood of requests mid-gesture; the concurrency cap bounds the
+// post-still burst. Each tile is loaded into its own image exactly as OL's
+// documented custom tileLoadFunction expects (no clobbering of OL's load/error
+// listeners), so removed layers clean up instead of leaving a ghost layer.
+const MAX_CONCURRENT_TILES = 6;
+const STILL_DELAY = 300;
+let satActive = 0;
+let satStill = false;
+let satTimer = null;
+const satQueue = [];
+
+// Reset/arm the "still" window: every new tile request pushes the quiet start
+// out by STILL_DELAY, so nothing fetches until the map stops moving.
+function satArm() {
+  satStill = false;
+  clearTimeout(satTimer);
+  satTimer = setTimeout(() => {
+    satStill = true;
+    satTick();
+  }, STILL_DELAY);
+}
+
+// Start queued fetches — only when the map is still AND a slot is free.
+function satTick() {
+  while (satStill && satActive < MAX_CONCURRENT_TILES && satQueue.length) {
+    const run = satQueue.shift();
+    satActive++;
+    run();
+  }
+}
+
+function satWait() {
+  satArm();
+  return new Promise((resolve) => {
+    satQueue.push(resolve);
+    satTick();
+  });
+}
+function satRelease() {
+  satActive--;
+  satTick();
+}
+
+function satelliteTileLoadFunction(tile, src) {
+  const image = tile.getImage();
+
+  satWait()
+    .then(() => fetch(src))
+    .then((res) => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.blob();
+    })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      // OpenLayers attaches its own load/error listeners (addEventListener)
+      // before this resolves, so only set img.src and let it finalize the tile.
+      image.src = url;
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    })
+    .catch((err) => {
+      // Fire OpenLayers' image error listener (via addEventListener) so the
+      // tile finals as ERROR instead of hanging in LOADING; hanging LOADING
+      // tiles are what leave a stale/ghost layer behind. Ignore aborts.
+      if (err?.name !== 'AbortError') image.dispatchEvent(new Event('error'));
+    })
+    .finally(satRelease);
+}
 
 const BASEMAP_DEFS = [
   // ponytail: static tile URLs for thumbnails — same tile coords across all sources gives visual comparison
@@ -517,6 +589,9 @@ const MapView = forwardRef(function MapView({
     return new ol.source.XYZ({
       url: basePath + '/' + viewtype + '/{z}/{x}/{y}?' + params.toString(),
       maxZoom: 21,
+      minZoom: 12,
+      cacheSize: 512,
+      tileLoadFunction: satelliteTileLoadFunction,
       attributions: '&copy; Earth to Date',
     });
   }
@@ -529,7 +604,7 @@ const MapView = forwardRef(function MapView({
     if (!viewtype) return;
     const source = createSatelliteSource(viewtype, date, months);
     if (!source) return;
-    const layer = new ol.layer.Tile({ source, visible: true });
+    const layer = new Tile({ source, visible: true, preload:0 });
     // Insert above basemaps but below vector layer
     const layers = mapInstance.getLayers();
     const vecIdx = layers.getArray().findIndex(l => l instanceof ol.layer.Vector);
@@ -556,8 +631,11 @@ const MapView = forwardRef(function MapView({
   const handleSatelliteViewtype2 = useCallback(async ({ viewtype, date, months }) => {
     satelliteStateRef2.current = { viewtype, date, months };
     if (!satellitePanelOpen2) return;
+    // Panel 2 targets the second map only; never fall back to the main map,
+    // or a duplicate satellite layer lands on top of panel 1's.
+    if (!map2Ref.current) return;
     const actual = await resolveR5mViewtype(viewtype, date, r5mActualRef2);
-    setSatelliteLayer(map2Ref.current || mapInstance.current, satelliteLayerRef2, actual, date, months);
+    setSatelliteLayer(map2Ref.current, satelliteLayerRef2, actual, date, months);
   }, [satellitePanelOpen2]);
 
   // Show/hide satellite layers when panels open/close
@@ -572,15 +650,17 @@ const MapView = forwardRef(function MapView({
     }
   }, [satellitePanelOpen]);
 
+  // Panel-2 satellite layer lives on the second map only (compare mode). It is
+  // created only once map2 exists; no fallback to the main map.
   useEffect(() => {
-    const target = map2Ref.current || mapInstance.current;
+    if (!map2Ref.current) return;
     if (satellitePanelOpen2) {
       const s = satelliteStateRef2.current;
-      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(target, satelliteLayerRef2, s.viewtype, s.date, s.months);
+      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(map2Ref.current, satelliteLayerRef2, s.viewtype, s.date, s.months);
     } else {
-      removeSatelliteLayer(target, satelliteLayerRef2);
+      removeSatelliteLayer(map2Ref.current, satelliteLayerRef2);
     }
-  }, [satellitePanelOpen2]);
+  }, [satellitePanelOpen2, map2Ref.current]);
 
   // Close pill export dropdown on outside click
   useEffect(() => {
@@ -706,6 +786,7 @@ const MapView = forwardRef(function MapView({
           </div>
         );
       })()}
+
     </div>
   );
 });

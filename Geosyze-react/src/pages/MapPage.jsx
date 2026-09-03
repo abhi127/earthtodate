@@ -14,8 +14,13 @@ export default function MapPage() {
 
   const handleToggleSatellite = useCallback(() => {
     setSatellitePanelOpen(o => !o);
-    setSatellitePanelOpen2(o => !o);
   }, []);
+
+  // Panel 2 only exists alongside the second map (compare mode): mirror panel 1
+  // there, and stay off otherwise.
+  useEffect(() => {
+    setSatellitePanelOpen2(compareMode ? satellitePanelOpen : false);
+  }, [compareMode, satellitePanelOpen]);
 
   const handleSearch = useCallback((lngLat, zoom) => {
     mapRef.current?.flyTo(lngLat, zoom);
