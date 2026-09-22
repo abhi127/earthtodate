@@ -19,6 +19,8 @@ import styles from './MapView.module.css';
 // listeners), so removed layers clean up instead of leaving a ghost layer.
 const MAX_CONCURRENT_TILES = 6;
 const STILL_DELAY = 300;
+// Initial pan target when the satellite panel first opens (lat, lon).
+const SATELLITE_PANEL_START = { lat: 9.288526538492734, lon: 79.31664088146607 };
 let satActive = 0;
 let satStill = false;
 let satTimer = null;
@@ -127,6 +129,7 @@ const MapView = forwardRef(function MapView({
   const cancelMeasureRef = useRef(null);
   const satelliteLayerRef = useRef(null);
   const satelliteLayerRef2 = useRef(null);
+  const satPanelInitialPanRef = useRef(false);
   const map2Ref = useRef(null);
 
   useEffect(() => {
@@ -635,9 +638,22 @@ const MapView = forwardRef(function MapView({
 
   // Show/hide satellite layers when panels open/close
   // For r5m_tci: skip here, handled async above
+  // On the very first open, center the map on the satellite start location.
   useEffect(() => {
     if (satellitePanelOpen) {
-      mapInstance.current?.getView().animate({ zoom: 16, duration: 500 });
+      const view = mapInstance.current?.getView();
+      if (view) {
+        if (!satPanelInitialPanRef.current) {
+          satPanelInitialPanRef.current = true;
+          view.animate({
+            center: window.ol.proj.fromLonLat([SATELLITE_PANEL_START.lon, SATELLITE_PANEL_START.lat]),
+            zoom: 16,
+            duration: 500,
+          });
+        } else {
+          view.animate({ zoom: 16, duration: 500 });
+        }
+      }
       const s = satelliteStateRef.current;
       if (s.viewtype !== 'r5m_tci') setSatelliteLayer(mapInstance.current, satelliteLayerRef, s.viewtype, s.date, s.months);
     } else {

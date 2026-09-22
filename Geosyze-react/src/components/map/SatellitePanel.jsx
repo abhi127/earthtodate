@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import DateCalendar from './DateCalendar';
 import { RAIL_CATEGORIES } from './satelliteCategories';
 import styles from './SatellitePanel.module.css';
@@ -226,17 +226,11 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
     nightlight, s1Subview,
   });
 
-  // Always fetch the best date with the panel's current location/viewtype, so
-  // the lookup re-runs on every open (0-cloud dates differ per location) and
-  // never uses a stale fetch result. Keyed on `open` only; the latest
-  // lat/lon/viewtype are read via the ref below.
-  const latestParamsRef = useRef({ lat, lon, viewtype });
-  latestParamsRef.current = { lat, lon, viewtype };
-
+  // Fetch the best date for the panel's current location/viewtype. Re-runs on
+  // every open AND whenever the map moves to a different location while open,
+  // so the 0-cloud lookup always matches where the panel is actually pointed.
   useEffect(() => {
-    if (!open) return;
-    const { lat, lon, viewtype } = latestParamsRef.current;
-    if (!lat || !lon || !viewtype) return;
+    if (!open || !lat || !lon || !viewtype) return;
     const today = new Date().toISOString().slice(0, 10);
     const effectiveView = viewtype === 'r5m_tci' ? 's2r5m_tci' : viewtype;
     const url = `${DATES_API_URL}/${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}/${effectiveView}/${today}/365/100`;
@@ -247,7 +241,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
         if (best) setDate(best);
       })
       .catch(() => {});
-  }, [open, pickBestDate]);
+  }, [open, lat, lon, viewtype, pickBestDate]);
 
   const showSensor = product === 'visual' || product === 'spectral';
   const showSpectral = product === 'spectral';
