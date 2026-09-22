@@ -203,7 +203,6 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
   const [newConstMonths, setNewConstMonths] = useState('12');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const bestDateFetchedRef = useRef(false);
 
   // Pick the "best" date from a /dates response: the latest date that rounds to
   // 0% cloud cover (same rounding the calendar pill shows), else the least
@@ -227,11 +226,17 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
     nightlight, s1Subview,
   });
 
-  // When the panel first loads, auto-select the best cloud-free date instead of
-  // defaulting to today. Mirrors the legacy fetchBestInitialDate flow.
+  // Always fetch the best date with the panel's current location/viewtype, so
+  // the lookup re-runs on every open (0-cloud dates differ per location) and
+  // never uses a stale fetch result. Keyed on `open` only; the latest
+  // lat/lon/viewtype are read via the ref below.
+  const latestParamsRef = useRef({ lat, lon, viewtype });
+  latestParamsRef.current = { lat, lon, viewtype };
+
   useEffect(() => {
-    if (!open || bestDateFetchedRef.current || !lat || !lon || !viewtype) return;
-    bestDateFetchedRef.current = true;
+    if (!open) return;
+    const { lat, lon, viewtype } = latestParamsRef.current;
+    if (!lat || !lon || !viewtype) return;
     const today = new Date().toISOString().slice(0, 10);
     const effectiveView = viewtype === 'r5m_tci' ? 's2r5m_tci' : viewtype;
     const url = `${DATES_API_URL}/${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}/${effectiveView}/${today}/365/100`;
@@ -242,7 +247,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
         if (best) setDate(best);
       })
       .catch(() => {});
-  }, [open, lat, lon, viewtype, pickBestDate]);
+  }, [open, pickBestDate]);
 
   const showSensor = product === 'visual' || product === 'spectral';
   const showSpectral = product === 'spectral';
