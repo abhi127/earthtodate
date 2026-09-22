@@ -1,7 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import DateCalendar from './DateCalendar';
 import { RAIL_CATEGORIES } from './satelliteCategories';
 import styles from './SatellitePanel.module.css';
+
+const DATES_API_URL = '/api/tiles/dates';
 
 // ── Constants (mirrored from ui.js) ─────────────────────────────────────
 
@@ -201,6 +203,17 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
   const [newConstMonths, setNewConstMonths] = useState('12');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const bestDateFetchedRef = useRef(false);
+
+  // Pick the "best" date from a /dates response: the latest date that rounds to
+  // 0% cloud cover (same rounding the calendar pill shows), else the least
+  // cloudy date.
+  const pickBestDate = useCallback((dates) => {
+    const clearDates = dates.filter(d => Math.round(parseFloat(d[1])) <= 0);
+    if (clearDates.length) return clearDates.sort((a, b) => b[0].localeCompare(a[0]))[0][0];
+    const sorted = [...dates].sort((a, b) => parseFloat(a[1]) - parseFloat(b[1]));
+    return sorted.length ? sorted[0][0] : null;
+  }, []);
 
   // Shared rail category changed → reset this panel's product if it no longer fits
   useEffect(() => {
@@ -213,6 +226,23 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
     product, sensor, spectral, soilSalinity, pollution, pollutionMode,
     nightlight, s1Subview,
   });
+
+  // When the panel first loads, auto-select the best cloud-free date instead of
+  // defaulting to today. Mirrors the legacy fetchBestInitialDate flow.
+  useEffect(() => {
+    if (!open || bestDateFetchedRef.current || !lat || !lon || !viewtype) return;
+    bestDateFetchedRef.current = true;
+    const today = new Date().toISOString().slice(0, 10);
+    const effectiveView = viewtype === 'r5m_tci' ? 's2r5m_tci' : viewtype;
+    const url = `${DATES_API_URL}/${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}/${effectiveView}/${today}/365/100`;
+    fetch(url)
+      .then(r => (r.ok ? r.json() : []))
+      .then(dates => {
+        const best = pickBestDate(dates || []);
+        if (best) setDate(best);
+      })
+      .catch(() => {});
+  }, [open, lat, lon, viewtype, pickBestDate]);
 
   const showSensor = product === 'visual' || product === 'spectral';
   const showSpectral = product === 'spectral';

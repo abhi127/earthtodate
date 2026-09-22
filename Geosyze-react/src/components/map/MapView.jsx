@@ -56,8 +56,20 @@ function satRelease() {
   satTick();
 }
 
+// Tiles that failed (no imagery / upstream error). OL re-requests the same
+// tile whenever it becomes visible again (pan, zoom, layer churn), so remember
+// failures and short-circuit to a transparent tile instead of re-hitting the
+// network each time.
+const tileFailCache = new Set();
+const TRANSPARENT_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
 function satelliteTileLoadFunction(tile, src) {
   const image = tile.getImage();
+
+  if (tileFailCache.has(src)) {
+    image.src = TRANSPARENT_TILE;
+    return;
+  }
 
   satWait()
     .then(() => fetch(src))
@@ -76,7 +88,10 @@ function satelliteTileLoadFunction(tile, src) {
       // Fire OpenLayers' image error listener (via addEventListener) so the
       // tile finals as ERROR instead of hanging in LOADING; hanging LOADING
       // tiles are what leave a stale/ghost layer behind. Ignore aborts.
-      if (err?.name !== 'AbortError') image.dispatchEvent(new Event('error'));
+      if (err?.name !== 'AbortError') {
+        tileFailCache.add(src);
+        image.dispatchEvent(new Event('error'));
+      }
     })
     .finally(satRelease);
 }
