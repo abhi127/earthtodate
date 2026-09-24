@@ -68,16 +68,13 @@ function SearchBar({ onSearch }) {
   );
 }
 
-export default function TopBar({ onMenuAction, compareMode, setCompareMode, onSearch }) {
+export default function TopBar({ onMenuAction, mapCount, maxMaps, onToggleCompare, onSearch }) {
   const { logout } = useAuth();
   const brand = useTheme();
+  const comparing = (mapCount ?? 1) > 1;
 
   function handleCompareToggle() {
-    if (compareMode) {
-      setCompareMode(null);
-    } else {
-      setCompareMode('compare');
-    }
+    onToggleCompare?.();
   }
 
   return (
@@ -91,7 +88,7 @@ export default function TopBar({ onMenuAction, compareMode, setCompareMode, onSe
         <span className={styles.brand}> {brand?.name || 'GEOSYZE'}</span>
         <SearchBar onSearch={onSearch} />
         <MenuBar onMenuAction={onMenuAction} />
-        <button className={`${styles.compareBtn} ${compareMode ? styles.compareActive : ''}`} onClick={handleCompareToggle} title={compareMode ? 'Exit compare mode' : 'Compare basemaps'}>
+        <button className={`${styles.compareBtn} ${comparing ? styles.compareActive : ''}`} onClick={handleCompareToggle} title={comparing ? `Exit compare (${mapCount} maps)` : `Compare maps (up to ${maxMaps ?? 4})`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="7" height="18" rx="1" />
             <rect x="14" y="3" width="7" height="18" rx="1" />

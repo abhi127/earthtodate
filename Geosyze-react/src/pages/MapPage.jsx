@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import TopBar from '../components/layout/TopBar';
 import Sidebar from '../components/layout/Sidebar';
 import MapView from '../components/map/MapView';
+import { MAX_MAPS, canAddMap } from '../components/map/mapCount';
 import styles from './MapPage.module.css';
 
 const SAT_CATEGORY = { e2d: 'visual', ai: 'ai', analytics: 'analytics' };
@@ -10,17 +11,59 @@ export default function MapPage() {
   const [activePanel, setActivePanel] = useState(null);
   const [activeBasemap, setActiveBasemap] = useState('osm');
   const [satCategory, setSatCategory] = useState('visual');
-  const [compareMode, setCompareMode] = useState(null);
+  // Multi-map compare: main map always exists; extras are stable ids.
+  // Up to MAX_MAPS total (main + extras), main is never closable.
+  const [extraIds, setExtraIds] = useState([]);
+  const nextExtraId = useRef(1);
+  const [layoutMode, setLayoutMode] = useState('compare'); // 'compare' | 'swipe' (swipe: exactly 2 maps)
   const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
-  const [satellitePanelOpen2, setSatellitePanelOpen2] = useState(false);
-  const [mapCenter, setMapCenter] = useState({ lat: 20.5937, lon: 78.9629 });
+  const [extraSatOpen, setExtraSatOpen] = useState({}); // id -> bool
   const mapRef = useRef(null);
 
-  // Panel 2 only exists alongside the second map (compare mode): mirror panel 1
-  // there, and stay off otherwise.
+  const mapCount = 1 + extraIds.length;
+  const extraIdsRef = useRef(extraIds);
+  extraIdsRef.current = extraIds;
+  const satellitePanelOpenRef = useRef(satellitePanelOpen);
+  satellitePanelOpenRef.current = satellitePanelOpen;
+
+  const addMap = useCallback(() => {
+    if (!canAddMap(extraIdsRef.current.length + 1)) return;
+    const id = nextExtraId.current++;
+    setExtraIds(prev => (prev.includes(id) ? prev : [...prev, id]));
+    // New maps inherit the main satellite panel state (open in compare).
+    setExtraSatOpen(prev => ({ ...prev, [id]: satellitePanelOpenRef.current }));
+  }, []);
+
+  const removeMap = useCallback((id) => {
+    setExtraIds(prev => prev.filter(x => x !== id));
+    setExtraSatOpen(prev => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const removeAllExtras = useCallback(() => {
+    setExtraIds([]);
+    setExtraSatOpen({});
+  }, []);
+
+  const toggleCompare = useCallback(() => {
+    if (extraIds.length > 0) removeAllExtras();
+    else addMap();
+  }, [extraIds.length, addMap, removeAllExtras]);
+
+  // Opening the satellite panel starts in compare view: ensure the second
+  // map exists. Only fires on the closed->open transition, so deleting back
+  // to the single main map while satellite stays open is respected (min 1).
+  // Closing satellite never forces maps closed.
+  const wasSatOpen = useRef(satellitePanelOpen);
   useEffect(() => {
-    setSatellitePanelOpen2(compareMode ? satellitePanelOpen : false);
-  }, [compareMode, satellitePanelOpen]);
+    const was = wasSatOpen.current;
+    wasSatOpen.current = satellitePanelOpen;
+    if (satellitePanelOpen && !was && extraIds.length === 0) addMap();
+  }, [satellitePanelOpen, extraIds.length, addMap]);
 
   // Earth to Date, AI and Analytics are the three satellite product categories.
   // They switch the satellite layer rather than opening a side panel; clicking
@@ -66,6 +109,9 @@ export default function MapPage() {
       case 'basemap-terrain':
         mapRef.current?.setBasemap('terrain');
         break;
+      case 'basemap-sentinel':
+        mapRef.current?.setBasemap('sentinel');
+        break;
       case 'draw-point':
         mapRef.current?.activateDraw('point');
         break;
@@ -107,40 +153,35 @@ export default function MapPage() {
     }
   }, [handleClear]);
 
-  // Track map center for calendar API
-  const handleCenterChange = useCallback((center) => {
-    if (center) {
-      const [lon, lat] = center;
-      setMapCenter({ lat, lon });
-    }
-  }, []);
+  const anySatelliteOpen = satellitePanelOpen || Object.values(extraSatOpen).some(Boolean);
 
   return (
     <div className={styles.page}>
-      <TopBar onMenuAction={handleMenuAction} compareMode={compareMode} setCompareMode={setCompareMode} onSearch={handleSearch} />
+      <TopBar onMenuAction={handleMenuAction} mapCount={mapCount} maxMaps={MAX_MAPS} onToggleCompare={toggleCompare} onSearch={handleSearch} />
       <div className={styles.body}>
         <Sidebar
           activePanel={activePanel}
           onSelectPanel={handleSelectPanel}
           activeBasemap={activeBasemap}
           onSelectBasemap={handleSelectBasemap}
-          satelliteOpen={satellitePanelOpen || satellitePanelOpen2}
+          satelliteOpen={anySatelliteOpen}
           satCategory={satCategory}
         />
         <main className={styles.mapArea}>
           <MapView
             ref={mapRef}
-            compareMode={compareMode}
-            setCompareMode={setCompareMode}
+            layoutMode={layoutMode}
+            onLayoutChange={setLayoutMode}
+            extraIds={extraIds}
+            onAddMap={addMap}
+            onRemoveMap={removeMap}
+            onRemoveAllExtras={removeAllExtras}
             satellitePanelOpen={satellitePanelOpen}
             setSatellitePanelOpen={setSatellitePanelOpen}
-            satellitePanelOpen2={satellitePanelOpen2}
-            setSatellitePanelOpen2={setSatellitePanelOpen2}
-            onCenterChange={handleCenterChange}
+            extraSatOpen={extraSatOpen}
             onBasemapChange={setActiveBasemap}
             satCategory={satCategory}
             onSatCategoryChange={setSatCategory}
-            center={mapCenter}
           />
         </main>
       </div>

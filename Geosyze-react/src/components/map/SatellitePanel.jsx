@@ -1,5 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import DateCalendar from './DateCalendar';
+import { SATELLITE_PANEL_START } from './satelliteDefaults';
+import { resolveDatesLocation } from './datesLocation';
 import { RAIL_CATEGORIES } from './satelliteCategories';
 import styles from './SatellitePanel.module.css';
 
@@ -191,7 +193,7 @@ function computeViewtype({ product, sensor, spectral, soilSalinity, pollution, p
 
 const SENSOR_SPECTRAL_ONLY = new Set(['s2dr', 's2']);
 
-export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon, category, onCategoryChange }) {
+export default function SatellitePanel({ open, onViewtypeChange, right, narrow, category, onCategoryChange, getViewCenter }) {
   const [product, setProduct] = useState('visual');
   const [sensor, setSensor] = useState(right ? 's2rr' : 's2');
   const [spectral, setSpectral] = useState('_ndvi');
@@ -203,6 +205,16 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
   const [newConstMonths, setNewConstMonths] = useState('12');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // Location the calendar queries availability for: snapshot of this panel's
+  // map view center taken when the calendar opens (falls back to the panel
+  // start location when the map isn't ready yet).
+  const [calendarCenter, setCalendarCenter] = useState(SATELLITE_PANEL_START);
+  const openCalendar = useCallback(() => {
+    setCalendarCenter(resolveDatesLocation(getViewCenter?.(), SATELLITE_PANEL_START));
+    setCalendarOpen(true);
+  }, [getViewCenter]);
+  const dateRequestCacheRef = useRef(new Map());
+  const activeViewtypeRef = useRef('');
 
   // Pick the "best" date from a /dates response: the latest date that rounds to
   // 0% cloud cover (same rounding the calendar pill shows), else the least
@@ -225,23 +237,33 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
     product, sensor, spectral, soilSalinity, pollution, pollutionMode,
     nightlight, s1Subview,
   });
+  activeViewtypeRef.current = viewtype;
 
-  // Fetch the best date for the panel's current location/viewtype. Re-runs on
-  // every open AND whenever the map moves to a different location while open,
-  // so the 0-cloud lookup always matches where the panel is actually pointed.
+  // Resolve the default date once per product/day for the panel's fixed opening
+  // location. Live map coordinates are intentionally not dependencies, so later
+  // panning can neither repeat the lookup nor replace the selected date.
   useEffect(() => {
-    if (!open || !lat || !lon || !viewtype) return;
+    if (!open || !viewtype) return;
+    const requestedViewtype = viewtype;
     const today = new Date().toISOString().slice(0, 10);
-    const effectiveView = viewtype === 'r5m_tci' ? 's2r5m_tci' : viewtype;
-    const url = `${DATES_API_URL}/${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}/${effectiveView}/${today}/365/100`;
-    fetch(url)
-      .then(r => (r.ok ? r.json() : []))
-      .then(dates => {
-        const best = pickBestDate(dates || []);
-        if (best) setDate(best);
-      })
-      .catch(() => {});
-  }, [open, lat, lon, viewtype, pickBestDate]);
+    const effectiveView = requestedViewtype === 'r5m_tci' ? 's2r5m_tci' : requestedViewtype;
+    const cacheKey = `${today}:${effectiveView}`;
+    let request = dateRequestCacheRef.current.get(cacheKey);
+
+    if (!request) {
+      const { lat, lon } = SATELLITE_PANEL_START;
+      const url = `${DATES_API_URL}/${lat.toFixed(4)},${lon.toFixed(4)}/${effectiveView}/${today}/365/100`;
+      request = fetch(url)
+        .then(r => (r.ok ? r.json() : []))
+        .then(dates => pickBestDate(dates || []))
+        .catch(() => null);
+      dateRequestCacheRef.current.set(cacheKey, request);
+    }
+
+    request.then(best => {
+      if (best && activeViewtypeRef.current === requestedViewtype) setDate(best);
+    });
+  }, [open, viewtype, pickBestDate]);
 
   const showSensor = product === 'visual' || product === 'spectral';
   const showSpectral = product === 'spectral';
@@ -343,7 +365,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
         key="date"
         type="button"
         className={styles.dateTrigger}
-        onClick={() => setCalendarOpen(true)}
+        onClick={openCalendar}
         title="Select date from calendar"
       >
         <span className={styles.dateTriggerText}>{formatDisplayDate(date)}</span>
@@ -362,7 +384,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
 
   return (
     <>
-      <div className={`${styles.bar} ${right ? styles.barRight : ''}`}>
+      <div className={`${styles.bar} ${right ? styles.barRight : ''} ${narrow ? styles.barNarrow : ''}`}>
         <div className={styles.row}>
           {row1.map(c => c.el)}
         </div>
@@ -376,8 +398,8 @@ export default function SatellitePanel({ open, onViewtypeChange, right, lat, lon
         isOpen={calendarOpen}
         onClose={() => setCalendarOpen(false)}
         onDateSelect={handleDateSelect}
-        lat={lat}
-        lon={lon}
+        lat={calendarCenter.lat}
+        lon={calendarCenter.lon}
         viewtype={viewtype}
         selectedDate={date}
       />

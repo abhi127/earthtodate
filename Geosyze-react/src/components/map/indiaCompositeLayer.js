@@ -18,6 +18,10 @@ export async function loadIndiaCompositeLayer(map) {
         features: new ol.format.GeoJSON().readFeatures(await res.json(), { featureProjection: 'EPSG:3857' }),
       }),
       zIndex: Z_INDEX,
+      properties: {
+        inspectorName: 'India composite boundary',
+        inspectorCategory: 'Reference',
+      },
       style,
     });
     map.addLayer(layer);

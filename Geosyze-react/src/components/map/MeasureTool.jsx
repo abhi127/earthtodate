@@ -48,6 +48,8 @@ export default function MeasureTool({ map, measureCancelRef, onBeforeMeasureStar
       }),
     });
     ly.set('name', 'measure-layer');
+    ly.set('inspectorName', 'Measurement features');
+    ly.set('inspectorCategory', 'Vector');
     map.addLayer(ly);
     srcRef.current = src;
     lyRef.current = ly;

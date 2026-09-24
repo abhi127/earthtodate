@@ -21,6 +21,23 @@
   right: 12px;
 }
 
+/* Narrow cells (3-4 maps side by side): keep controls inside the cell so
+   they wrap instead of overlapping the neighbouring map. */
+.barNarrow {
+  max-width: calc(100% - 24px);
+  gap: 0.25rem;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.68rem;
+}
+.barNarrow .select {
+  max-width: 110px;
+  margin-right: 0.25rem;
+  font-size: 0.68rem;
+}
+.barNarrow .dateTriggerText {
+  min-width: 0;
+}
+
 .select {
   padding: 0.2rem 0.3rem;
   background: var(--surfaceAlt, #334155);

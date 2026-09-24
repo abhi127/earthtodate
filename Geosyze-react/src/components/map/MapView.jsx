@@ -4,9 +4,12 @@ import MapOverlay from './MapOverlay';
 import MeasureTool from './MeasureTool';
 import MapControls from './MapControls';
 import MapCompare from './MapCompare';
+import LayerInspector from './LayerInspector';
 import SatellitePanel from './SatellitePanel';
 import SatelliteLegend from './SatelliteLegend';
 import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
+import { SATELLITE_PANEL_START, SATELLITE_OPEN_RESOLUTION } from './satelliteDefaults';
+import { resolveLayout } from './mapCount';
 import {Tile} from 'ol/layer'
 import styles from './MapView.module.css';
 
@@ -19,8 +22,11 @@ import styles from './MapView.module.css';
 // listeners), so removed layers clean up instead of leaving a ghost layer.
 const MAX_CONCURRENT_TILES = 6;
 const STILL_DELAY = 300;
-// Initial pan target when the satellite panel first opens (lat, lon).
-const SATELLITE_PANEL_START = { lat: 9.288526538492734, lon: 79.31664088146607 };
+// Satellite products are unavailable below z12. The source tile grid alone does
+// not enforce that floor: OpenLayers clamps the selected tile zoom to minZoom,
+// so a z9.9 view would otherwise keep requesting z12 tiles.
+const SATELLITE_MIN_ZOOM = 12;
+const SATELLITE_MAX_ZOOM = 21;
 let satActive = 0;
 let satStill = false;
 let satTimer = null;
@@ -63,9 +69,17 @@ function satRelease() {
 // failures and short-circuit to a transparent tile instead of re-hitting the
 // network each time.
 const tileFailCache = new Set();
-const TRANSPARENT_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+// A real 1×1 RGBA pixel with alpha 0. The previous value was half-green and
+// OpenLayers scaled it across the whole tile during loading/abort transitions.
+const TRANSPARENT_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
 
-function satelliteTileLoadFunction(tile, src) {
+function abortError() {
+  const error = new Error('Satellite tile request superseded');
+  error.name = 'AbortError';
+  return error;
+}
+
+function satelliteTileLoadFunction(tile, src, requestContext) {
   const image = tile.getImage();
 
   if (tileFailCache.has(src)) {
@@ -74,23 +88,38 @@ function satelliteTileLoadFunction(tile, src) {
   }
 
   satWait()
-    .then(() => fetch(src))
-    .then((res) => {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.blob();
-    })
-    .then((blob) => {
-      const url = URL.createObjectURL(blob);
-      // OpenLayers attaches its own load/error listeners (addEventListener)
-      // before this resolves, so only set img.src and let it finalize the tile.
-      image.src = url;
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    .then(() => {
+      // The layer may have been removed, replaced, or zoomed below its product
+      // floor while this tile waited in the debounce queue. Do not turn that
+      // stale queue entry into a server request.
+      if (!requestContext.active) throw abortError();
+
+      const controller = new AbortController();
+      requestContext.controllers.add(controller);
+      return fetch(src, { signal: controller.signal })
+        .then((res) => {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.blob();
+        })
+        .then((blob) => {
+          if (!requestContext.active) throw abortError();
+          const url = URL.createObjectURL(blob);
+          // OpenLayers attaches its own load/error listeners (addEventListener)
+          // before this resolves, so only set img.src and let it finalize the tile.
+          image.src = url;
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        })
+        .finally(() => requestContext.controllers.delete(controller));
     })
     .catch((err) => {
       // Fire OpenLayers' image error listener (via addEventListener) so the
       // tile finals as ERROR instead of hanging in LOADING; hanging LOADING
-      // tiles are what leave a stale/ghost layer behind. Ignore aborts.
-      if (err?.name !== 'AbortError') {
+      // tiles are what leave a stale/ghost layer behind. Aborted/stale tiles
+      // belong to a source that has already been removed, so finalize them as
+      // transparent without recording a server failure.
+      if (err?.name === 'AbortError') {
+        image.src = TRANSPARENT_TILE;
+      } else {
         tileFailCache.add(src);
         image.dispatchEvent(new Event('error'));
       }
@@ -98,15 +127,16 @@ function satelliteTileLoadFunction(tile, src) {
     .finally(satRelease);
 }
 
-const MapView = forwardRef(function MapView({ 
-  compareMode, 
-  setCompareMode, 
-  satellitePanelOpen, 
-  setSatellitePanelOpen, 
-  satellitePanelOpen2, 
-  setSatellitePanelOpen2,
-  onCenterChange,
-  center: initialCenter,
+const MapView = forwardRef(function MapView({
+  layoutMode,
+  onLayoutChange,
+  extraIds,
+  onAddMap,
+  onRemoveMap,
+  onRemoveAllExtras,
+  satellitePanelOpen,
+  setSatellitePanelOpen,
+  extraSatOpen,
   onBasemapChange,
   satCategory,
   onSatCategoryChange
@@ -115,7 +145,6 @@ const MapView = forwardRef(function MapView({
   const mapInstance = useRef(null);
   const vectorSource = useRef(null);
   const basemapRefs = useRef({});
-  const [center, setCenter] = useState(initialCenter ?? { lat: 20.5937, lon: 78.9629 });
   const drawInteractionRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [coords, setCoords] = useState('Lon: \u2014  Lat: \u2014');
@@ -126,11 +155,23 @@ const MapView = forwardRef(function MapView({
   const [measureSlot, setMeasureSlot] = useState(null);
   const [drawType, setDrawType] = useState(null);
   const [pillExportOpen, setPillExportOpen] = useState(false);
+  const [layerInspectorOpen, setLayerInspectorOpen] = useState(false);
   const cancelMeasureRef = useRef(null);
   const satelliteLayerRef = useRef(null);
-  const satelliteLayerRef2 = useRef(null);
+  const satelliteRequestContextRef = useRef(null);
   const satPanelInitialPanRef = useRef(false);
-  const map2Ref = useRef(null);
+  // Extra maps (compare views) + per-map satellite state, keyed by stable id.
+  // The main map always exists; extras come and go via extraIds.
+  const extraMapsRef = useRef(new Map()); // id -> ol.Map
+  const [extraMapsTick, setExtraMapsTick] = useState(0);
+  const extraSatLayers = useRef(new Map());   // id -> Tile layer
+  const extraSatContexts = useRef(new Map()); // id -> request context
+  const extraR5mActual = useRef(new Map());   // id -> resolved r5m source
+  const extraSatStates = useRef(new Map());   // id -> { viewtype, date, months }
+  const extraSatHandlers = useRef(new Map()); // id -> stable onViewtypeChange
+  const [satTick, setSatTick] = useState(0);  // re-render legends on sat change
+  const mapCount = 1 + (extraIds?.length ?? 0);
+  const hasExtras = mapCount > 1;
 
   useEffect(() => {
     const ol = window.ol;
@@ -181,12 +222,37 @@ const MapView = forwardRef(function MapView({
         }),
         visible: false,
       }),
+      sentinel: new ol.layer.Tile({
+        source: new ol.source.XYZ({
+          url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg',
+          maxZoom: 14,
+          attributions: 'Sentinel-2 cloudless - <a href="https://s2maps.eu">EOX</a> (Contains modified Copernicus Sentinel data)',
+        }),
+        visible: false,
+      }),
     };
     basemapRefs.current = layers;
 
+    const basemapNames = {
+      osm: 'OSM',
+      satellite: 'Esri',
+      terrain: 'Terrain',
+      light: 'CARTO',
+      streets: 'Streets',
+      dark: 'Dark',
+      sentinel: 'Sentinel',
+    };
+    Object.entries(layers).forEach(([id, layer]) => {
+      layer.set('inspectorName', `Basemap: ${basemapNames[id]}`);
+      layer.set('inspectorCategory', 'Basemap');
+      layer.set('basemapId', id);
+    });
+    vectorLayer.set('inspectorName', 'Drawn features');
+    vectorLayer.set('inspectorCategory', 'Vector');
+
     const map = new ol.Map({
       target: mapRef.current,
-      layers: [layers.osm, layers.satellite, layers.terrain, layers.light, layers.streets, layers.dark, vectorLayer],
+      layers: [layers.osm, layers.satellite, layers.terrain, layers.light, layers.streets, layers.dark, layers.sentinel, vectorLayer],
       view: new ol.View({
         center: ol.proj.fromLonLat([78.9629, 20.5937]),
         zoom: 5,
@@ -214,33 +280,17 @@ const MapView = forwardRef(function MapView({
       setResolution(`Res: ${view.getResolution().toFixed(2)} m/px`);
     });
 
-    // Track center changes for calendar API
-    let centerTimeout;
-    const handleCenterChange = () => {
-      clearTimeout(centerTimeout);
-      centerTimeout = setTimeout(() => {
-        const view = map.getView();
-        const center = view.getCenter();
-        if (center) {
-          const ll = ol.proj.toLonLat(center);
-          const newCenter = { lat: ll[1], lon: ll[0] };
-          setCenter(newCenter);
-          if (onCenterChange) {
-            onCenterChange([ll[0], ll[1]]);
-          }
-        }
-      }, 150); // debounce
-    };
-    map.getView().on('change:center', handleCenterChange);
-
     return () => {
-      clearTimeout(centerTimeout);
-      map.getView().un('change:center', handleCenterChange);
+      disposeRequestContext(satelliteRequestContextRef);
+      for (const ctx of extraSatContexts.current.values()) {
+        try { ctx.active = false; ctx.controllers.forEach(c => c.abort()); ctx.controllers.clear(); } catch {}
+      }
+      extraSatContexts.current.clear();
       map.setTarget(null);
       mapInstance.current = null;
       setMapReady(false);
     };
-  }, [onCenterChange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchBasemap = useCallback((val) => {
     const layers = Object.values(basemapRefs.current).filter(Boolean);
@@ -545,20 +595,15 @@ const MapView = forwardRef(function MapView({
 
   // For r5m_tci ("5m Combined"): resolve to actual source (s2r5m_tci or ls5_tci)
   const r5mActualRef = useRef(null);
-  const r5mActualRef2 = useRef(null);
 
   async function resolveR5mViewtype(viewtype, date, r5mRef) {
     if (viewtype !== 'r5m_tci') return viewtype;
-    const ol = window.ol;
-    const map = mapInstance.current;
-    if (!ol || !map) return viewtype;
-    const center = ol.proj.toLonLat(map.getView().getCenter());
-    const lat = center[1].toFixed(4);
-    const lon = center[0].toFixed(4);
+    const { lat, lon } = SATELLITE_PANEL_START;
+    const location = `${lat.toFixed(4)},${lon.toFixed(4)}`;
     try {
       const [s2Resp, lsResp] = await Promise.all([
-        fetch(`/api/tiles/dates/${lat},${lon}/s2r5m_tci/${date}/365/100`).then(r => r.json()).catch(() => []),
-        fetch(`/api/tiles/dates/${lat},${lon}/ls5_tci/${date}/365/100`).then(r => r.json()).catch(() => [])
+        fetch(`/api/tiles/dates/${location}/s2r5m_tci/${date}/365/100`).then(r => r.json()).catch(() => []),
+        fetch(`/api/tiles/dates/${location}/ls5_tci/${date}/365/100`).then(r => r.json()).catch(() => [])
       ]);
       // Merge: same date, pick lower clouds
       const merged = {};
@@ -574,7 +619,7 @@ const MapView = forwardRef(function MapView({
     return 's2r5m_tci';
   }
 
-  function createSatelliteSource(viewtype, date, months) {
+  function createSatelliteSource(viewtype, date, months, requestContext) {
     const ol = window.ol;
     if (!ol) return null;
     const params = new URLSearchParams({ end_date: date, days_back: '1', max_clouds: '100' });
@@ -586,55 +631,185 @@ const MapView = forwardRef(function MapView({
 
     return new ol.source.XYZ({
       url: basePath + '/' + viewtype + '/{z}/{x}/{y}?' + params.toString(),
-      maxZoom: 21,
-      minZoom: 12,
+      maxZoom: SATELLITE_MAX_ZOOM,
+      minZoom: SATELLITE_MIN_ZOOM,
       cacheSize: 512,
-      tileLoadFunction: satelliteTileLoadFunction,
+      tileLoadFunction: (tile, src) => satelliteTileLoadFunction(tile, src, requestContext),
       attributions: '&copy; Earth to Date',
     });
   }
 
-  function setSatelliteLayer(mapInstance, ref, viewtype, date, months) {
+  function disposeRequestContext(contextRef) {
+    const context = contextRef?.current;
+    if (!context) return;
+    context.active = false;
+    context.controllers.forEach(controller => controller.abort());
+    context.controllers.clear();
+    contextRef.current = null;
+  }
+
+  function satRefsFor(key) {
+    if (key === 'main') return { layerRef: satelliteLayerRef, contextRef: satelliteRequestContextRef };
+    if (!extraSatLayers.current.has(key)) extraSatLayers.current.set(key, null);
+    return {
+      layerRef: { get current() { return extraSatLayers.current.get(key) ?? null; }, set current(v) { extraSatLayers.current.set(key, v); } },
+      contextRef: { get current() { return extraSatContexts.current.get(key) ?? null; }, set current(v) { extraSatContexts.current.set(key, v); } },
+    };
+  }
+
+  function mapFor(key) {
+    if (key === 'main') return mapInstance.current;
+    return extraMapsRef.current.get(key) ?? null;
+  }
+
+  function labelFor(key) {
+    if (key === 'main') return 'Main';
+    const pos = (extraIds ?? []).indexOf(key);
+    return pos >= 0 ? `Map ${pos + 2}` : `Map ${key}`;
+  }
+
+  function defaultSatState() {
+    return { viewtype: 's2_tci', date: new Date().toISOString().slice(0, 10), months: undefined };
+  }
+
+  // Current view center of a map as { lat, lon } (lon/lat order from OL).
+  function centerOf(map) {
+    try {
+      const ol = window.ol;
+      const view = map?.getView?.();
+      if (!ol || !view) return null;
+      const ll = ol.proj.toLonLat(view.getCenter());
+      if (!ll || !Number.isFinite(ll[0]) || !Number.isFinite(ll[1])) return null;
+      return { lat: ll[1], lon: ll[0] };
+    } catch {
+      return null;
+    }
+  }
+
+  const getMainViewCenter = useCallback(() => centerOf(mapInstance.current), []);
+  const getExtraViewCenter = useCallback((id) => centerOf(extraMapsRef.current.get(id)), []);
+
+  function setSatelliteLayerFor(key, viewtype, date, months) {
+    const mapInstance = mapFor(key);
+    const { layerRef, contextRef } = satRefsFor(key);
+    setSatelliteLayer(mapInstance, layerRef, contextRef, viewtype, date, months, labelFor(key));
+  }
+
+  function removeSatelliteLayerFor(key) {
+    const mapInstance = mapFor(key);
+    const { layerRef, contextRef } = satRefsFor(key);
+    removeSatelliteLayer(mapInstance, layerRef, contextRef);
+  }
+  function setSatelliteLayer(mapInstance, ref, contextRef, viewtype, date, months, side = 'Main') {
     const ol = window.ol;
     if (!mapInstance || !ol) return;
-    // Remove old layer
-    if (ref.current) { mapInstance.removeLayer(ref.current); ref.current = null; }
-    if (!viewtype) return;
-    const source = createSatelliteSource(viewtype, date, months);
+    removeSatelliteLayer(mapInstance, ref, contextRef);
+    if (!viewtype || (mapInstance.getView().getZoom() ?? 0) < SATELLITE_MIN_ZOOM) return;
+
+    const requestContext = { active: true, controllers: new Set() };
+    const source = createSatelliteSource(viewtype, date, months, requestContext);
     if (!source) return;
-    const layer = new Tile({ source, visible: true, preload:0 });
-    // Insert above basemaps but below vector layer
+    const layer = new Tile({
+      source,
+      visible: true,
+      preload: 0,
+      // Source minZoom clamps z9.9 to a z12 tile. This layer-level floor
+      // prevents the renderer from enqueueing that clamped tile at all. Layer
+      // minZoom is exclusive, hence the tiny epsilon that keeps z12 visible.
+      minZoom: SATELLITE_MIN_ZOOM - 0.001,
+      properties: {
+        inspectorName: `Satellite (${side}): ${viewtype}`,
+        inspectorCategory: 'Satellite',
+        satelliteViewtype: viewtype,
+      },
+    });
+
+    // Insert above basemaps but below vector layer.
     const layers = mapInstance.getLayers();
     const vecIdx = layers.getArray().findIndex(l => l instanceof ol.layer.Vector);
-    layers.insertAt(vecIdx >= 0 ? vecIdx : layers.getLength(), layer);
+    contextRef.current = requestContext;
     ref.current = layer;
+    layers.insertAt(vecIdx >= 0 ? vecIdx : layers.getLength(), layer);
   }
 
-  function removeSatelliteLayer(mapInstance, ref) {
-    if (!mapInstance || !ref.current) return;
-    mapInstance.removeLayer(ref.current);
-    ref.current = null;
+  function removeSatelliteLayer(mapInstance, ref, contextRef) {
+    disposeRequestContext(contextRef);
+    if (mapInstance && ref?.current) {
+      try { mapInstance.removeLayer(ref.current); } catch { /* already detached */ }
+    }
+    if (ref) ref.current = null;
   }
 
-  // Track latest values from satellite panel
-  const satelliteStateRef = useRef({ viewtype: 's2_tci', date: new Date().toISOString().slice(0, 10), months: undefined });
-  const satelliteStateRef2 = useRef({ viewtype: 's2_tci', date: new Date().toISOString().slice(0, 10), months: undefined });
+  // Track latest values from satellite panels (main + one per extra map).
+  // Main-map r5m resolution ref (r5mActualRef) is declared above.
+  const satelliteStateRef = useRef(defaultSatState());
+
+  function extraStateFor(id) {
+    if (!extraSatStates.current.has(id)) extraSatStates.current.set(id, defaultSatState());
+    return extraSatStates.current.get(id);
+  }
+  function extraR5mFor(id) {
+    if (!extraR5mActual.current.has(id)) extraR5mActual.current.set(id, null);
+    return { get current() { return extraR5mActual.current.get(id); }, set current(v) { extraR5mActual.current.set(id, v); } };
+  }
+  function extraOpenFor(id) {
+    return !!extraSatOpen?.[id];
+  }
 
   const handleSatelliteViewtype = useCallback(async ({ viewtype, date, months }) => {
     satelliteStateRef.current = { viewtype, date, months };
+    setSatTick(t => t + 1);
     if (!satellitePanelOpen) return;
     const actual = await resolveR5mViewtype(viewtype, date, r5mActualRef);
-    setSatelliteLayer(mapInstance.current, satelliteLayerRef, actual, date, months);
+    setSatelliteLayerFor('main', actual, date, months);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [satellitePanelOpen]);
-  const handleSatelliteViewtype2 = useCallback(async ({ viewtype, date, months }) => {
-    satelliteStateRef2.current = { viewtype, date, months };
-    if (!satellitePanelOpen2) return;
-    // Panel 2 targets the second map only; never fall back to the main map,
-    // or a duplicate satellite layer lands on top of panel 1's.
-    if (!map2Ref.current) return;
-    const actual = await resolveR5mViewtype(viewtype, date, r5mActualRef2);
-    setSatelliteLayer(map2Ref.current, satelliteLayerRef2, actual, date, months);
-  }, [satellitePanelOpen2]);
+
+  const handleExtraSatelliteViewtype = useCallback(async (id, { viewtype, date, months }) => {
+    extraSatStates.current.set(id, { viewtype, date, months });
+    setSatTick(t => t + 1);
+    if (!extraOpenFor(id)) return;
+    if (!extraMapsRef.current.get(id)) return;
+    const actual = await resolveR5mViewtype(viewtype, date, extraR5mFor(id));
+    setSatelliteLayerFor(id, actual, date, months);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extraSatOpen, extraMapsTick]);
+
+  // Stable per-map callbacks (SatellitePanel notifies on every change, so
+  // identity must not churn or panels re-notify in a loop).
+  function extraHandlerFor(id) {
+    if (!extraSatHandlers.current.has(id)) {
+      extraSatHandlers.current.set(id, (v) => handleExtraSatelliteViewtype(id, v));
+    }
+    return extraSatHandlers.current.get(id);
+  }
+
+  const handleExtraMapsReady = useCallback((maps) => {
+    extraMapsRef.current = maps instanceof Map ? maps : new Map();
+    setExtraMapsTick(t => t + 1);
+  }, []);
+
+  const renderExtraPanel = useCallback((id) => (
+    <SatellitePanel
+      key={`sat-${id}`}
+      open={!!extraSatOpen?.[id]}
+      onViewtypeChange={extraHandlerFor(id)}
+      right
+      narrow={mapCount > 2}
+      category={satCategory}
+      onCategoryChange={onSatCategoryChange}
+      getViewCenter={() => getExtraViewCenter(id)}
+    />
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [extraSatOpen, satCategory, extraMapsTick, mapCount]);
+
+  const renderExtraLegend = useCallback((id) => {
+    if (!extraSatOpen?.[id]) return null;
+    const s = extraSatStates.current.get(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return <SatelliteLegend key={`leg-${id}`} viewtype={s?.viewtype} />;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extraSatOpen, satTick]);
 
   // Show/hide satellite layers when panels open/close
   // For r5m_tci: skip here, handled async above
@@ -647,31 +822,87 @@ const MapView = forwardRef(function MapView({
           satPanelInitialPanRef.current = true;
           view.animate({
             center: window.ol.proj.fromLonLat([SATELLITE_PANEL_START.lon, SATELLITE_PANEL_START.lat]),
-            zoom: 16,
+            resolution: SATELLITE_OPEN_RESOLUTION,
             duration: 500,
           });
         } else {
-          view.animate({ zoom: 16, duration: 500 });
+          view.animate({ resolution: SATELLITE_OPEN_RESOLUTION, duration: 500 });
         }
       }
       const s = satelliteStateRef.current;
-      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(mapInstance.current, satelliteLayerRef, s.viewtype, s.date, s.months);
+      if (s.viewtype !== 'r5m_tci') setSatelliteLayerFor('main', s.viewtype, s.date, s.months);
     } else {
-      removeSatelliteLayer(mapInstance.current, satelliteLayerRef);
+      removeSatelliteLayerFor('main');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [satellitePanelOpen]);
+
+  // Extra-map satellite layers: one per compare view, created only once the
+  // extra map exists; never fall back to the main map, or a duplicate
+  // satellite layer lands on top of another panel's.
+  useEffect(() => {
+    const ids = extraIds ?? [];
+    // Drop state/handlers for removed maps so nothing leaks across add/remove.
+    for (const id of Array.from(extraSatStates.current.keys())) {
+      if (!ids.includes(id)) {
+        removeSatelliteLayerFor(id);
+        extraSatStates.current.delete(id);
+        extraR5mActual.current.delete(id);
+        extraSatHandlers.current.delete(id);
+        extraSatLayers.current.delete(id);
+      }
+    }
+    for (const id of ids) {
+      const m = extraMapsRef.current.get(id);
+      if (!m) continue;
+      if (extraOpenFor(id)) {
+        const s = extraStateFor(id);
+        if (s.viewtype !== 'r5m_tci') setSatelliteLayerFor(id, s.viewtype, s.date, s.months);
+      } else {
+        removeSatelliteLayerFor(id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extraIds, extraSatOpen, extraMapsTick]);
+
+  // Enforce the product zoom floor on the layer itself. Crossing below z12
+  // removes it and aborts queued/in-flight product tiles; crossing back recreates
+  // it with a fresh source, so OpenLayers cannot keep clamped z12 tiles around.
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map) return undefined;
+    const view = map.getView();
+
+    const stateForKey = (key) => (key === 'main' ? satelliteStateRef.current : extraStateFor(key));
+    const r5mForKey = (key) => (key === 'main' ? r5mActualRef.current : (extraR5mActual.current.get(key) || null));
+    const openForKey = (key) => (key === 'main' ? satellitePanelOpen : extraOpenFor(key));
+    const layerForKey = (key) => (key === 'main' ? satelliteLayerRef.current : (extraSatLayers.current.get(key) ?? null));
+
+    const syncLayerZoom = () => {
+      const allowed = (view.getZoom() ?? 0) >= SATELLITE_MIN_ZOOM;
+      const keys = ['main', ...(extraIds ?? [])];
+      if (!allowed) {
+        for (const key of keys) removeSatelliteLayerFor(key);
+        return;
+      }
+      for (const key of keys) {
+        if (key !== 'main' && !extraMapsRef.current.get(key)) continue;
+        const s = stateForKey(key);
+        if (openForKey(key) && !layerForKey(key)) {
+          const viewtype = s.viewtype === 'r5m_tci' ? (r5mForKey(key) || 's2r5m_tci') : s.viewtype;
+          setSatelliteLayerFor(key, viewtype, s.date, s.months);
+        }
+      }
+    };
+
+    view.on('change:resolution', syncLayerZoom);
+    syncLayerZoom();
+    return () => view.un('change:resolution', syncLayerZoom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasExtras, satellitePanelOpen, extraSatOpen, extraMapsTick]);
 
   // Panel-2 satellite layer lives on the second map only (compare mode). It is
   // created only once map2 exists; no fallback to the main map.
-  useEffect(() => {
-    if (!map2Ref.current) return;
-    if (satellitePanelOpen2) {
-      const s = satelliteStateRef2.current;
-      if (s.viewtype !== 'r5m_tci') setSatelliteLayer(map2Ref.current, satelliteLayerRef2, s.viewtype, s.date, s.months);
-    } else {
-      removeSatelliteLayer(map2Ref.current, satelliteLayerRef2);
-    }
-  }, [satellitePanelOpen2, map2Ref.current]);
 
   // Close pill export dropdown on outside click
   useEffect(() => {
@@ -685,35 +916,68 @@ const MapView = forwardRef(function MapView({
 
   // Clean up draw/measure when entering compare mode (from any toggle source)
   useEffect(() => {
-    if (compareMode) { cancelMeasureRef.current?.(); deactivateDraw(); }
-  }, [compareMode]);
+    if (hasExtras) { cancelMeasureRef.current?.(); deactivateDraw(); }
+  }, [hasExtras]);
 
   // Call updateSize when compare mode changes (map container resizes)
   // Wrap in rAF so layout settles before OL reads element dimensions
   useEffect(() => {
     if (!mapInstance.current) return;
-    let id = requestAnimationFrame(() => mapInstance.current.updateSize());
+    const id = requestAnimationFrame(() => mapInstance.current.updateSize());
     return () => cancelAnimationFrame(id);
-  }, [compareMode]);
+  }, [hasExtras, layoutMode, mapCount]);
 
+  const layout = resolveLayout(mapCount, layoutMode);
   let containerClass = styles.container;
-  if (compareMode === 'compare') containerClass += ` ${styles.compareActive}`;
-  else if (compareMode === 'swipe') containerClass += ` ${styles.compareActive} ${styles.compareSwipeMode}`;
+  if (layout === 'compare') containerClass += ` ${styles.compareActive}`;
+  else if (layout === 'swipe') containerClass += ` ${styles.compareActive} ${styles.compareSwipeMode}`;
+  else if (layout === 'grid') containerClass += ` ${styles.stripActive}`;
 
   return (
     <div className={containerClass}>
-      <div ref={mapRef} className={styles.map}></div>
+      <div className={styles.mapCell}>
+        <div ref={mapRef} className={styles.map}></div>
+        <SatellitePanel
+          open={satellitePanelOpen}
+          onViewtypeChange={handleSatelliteViewtype}
+          narrow={mapCount > 2}
+          category={satCategory}
+          onCategoryChange={onSatCategoryChange}
+          getViewCenter={getMainViewCenter}
+        />
+        {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
+      </div>
       <MapOverlay coords={coords} zoom={zoom} resolution={resolution} />
       {mapReady && <MeasureTool map={mapInstance.current} measureCancelRef={cancelMeasureRef} onBeforeMeasureStart={handleBeforeMeasureStart} buttonSlot={measureSlot} />}
-      {mapReady && <MapControls map={mapInstance.current} measureSlotRef={setMeasureSlot} />}
+      {mapReady && (
+        <MapControls
+          map={mapInstance.current}
+          measureSlotRef={setMeasureSlot}
+          layerInspectorOpen={layerInspectorOpen}
+          onToggleLayerInspector={() => setLayerInspectorOpen(open => !open)}
+        />
+      )}
+      {mapReady && (
+        <LayerInspector
+          map={mapInstance.current}
+          open={layerInspectorOpen}
+          onClose={() => setLayerInspectorOpen(false)}
+        />
+      )}
       {mapReady && (
         <MapCompare
           map={mapInstance.current}
-          mode={compareMode}
+          extraIds={extraIds ?? []}
+          onAddMap={onAddMap}
+          onRemoveMap={onRemoveMap}
+          onRemoveAllExtras={onRemoveAllExtras}
+          layoutMode={layoutMode}
+          onLayoutChange={onLayoutChange}
           basemapRefs={basemapRefs.current}
           activeBasemap={activeBasemap}
-          onToggle={setCompareMode}
-          onMap2Ready={m2 => { map2Ref.current = m2; }}
+          onExtraMapsReady={handleExtraMapsReady}
+          renderPanel={renderExtraPanel}
+          renderLegend={renderExtraLegend}
         />
       )}
 
@@ -742,27 +1006,6 @@ const MapView = forwardRef(function MapView({
           <button className={styles.drawPillClose} onClick={deactivateDraw} title="Cancel draw">&times;</button>
         </div>
       )}
-      <SatellitePanel
-        open={satellitePanelOpen}
-        onViewtypeChange={handleSatelliteViewtype}
-        lat={center?.lat ?? 20.5937}
-        lon={center?.lon ?? 78.9629}
-        category={satCategory}
-        onCategoryChange={onSatCategoryChange}
-      />
-      {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
-      {compareMode && (
-        <SatellitePanel
-          open={satellitePanelOpen2}
-          onViewtypeChange={handleSatelliteViewtype2}
-          right
-          lat={center?.lat ?? 20.5937}
-          lon={center?.lon ?? 78.9629}
-          category={satCategory}
-          onCategoryChange={onSatCategoryChange}
-        />
-      )}
-      {compareMode && satellitePanelOpen2 && <SatelliteLegend viewtype={satelliteStateRef2.current.viewtype} right />}
     </div>
   );
 });

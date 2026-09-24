@@ -19,31 +19,31 @@ const RAIL_ITEMS = [
     icon: <svg {...ICON}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
   },
   {
-    id: 'e2d', label: 'Earth to Date',
-    icon: <svg {...ICON}><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
-  },
-  {
-    id: 'earthdaily', label: 'EarthDaily',
-    icon: <svg {...ICON}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>,
-  },
-  {
-    id: 'archive', label: 'Archive Search (MGP Pro)',
+    id: 'archive', label: 'Archive Search',
     icon: <svg {...ICON}><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   },
   {
-    id: 'ai', label: 'AI',
-    icon: CATEGORY_ICONS.ai,
+    id: 'e2d', label: 'Earth to Date',
+    icon: <svg {...ICON}><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
   },
   {
     id: 'analytics', label: 'Analytics',
     icon: CATEGORY_ICONS.analytics,
   },
   {
+    id: 'ai', label: 'AI',
+    icon: CATEGORY_ICONS.ai,
+  },
+  {
     id: 'blacksky', label: 'BlackSky',
     icon: <svg {...ICON}><path d="M12 2a10 10 0 1 0 10 10"/><circle cx="12" cy="12" r="3"/><path d="M17 3l4 4"/><path d="M21 3l-4 4"/></svg>,
   },
   {
-    id: 'vantor', label: 'Vantor (formerly Maxar)',
+    id: 'earthdelhi', label: 'Earth Delhi',
+    icon: <svg {...ICON}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>,
+  },
+  {
+    id: 'vantor', label: 'Vantor',
     icon: <svg {...ICON}><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>,
   },
 ];

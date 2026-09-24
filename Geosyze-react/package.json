@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node src/components/map/basemaps.test.mjs && node src/components/map/mapCount.test.mjs && node src/components/map/datesLocation.test.mjs && node src/components/map/satelliteDefaults.test.mjs && node src/components/map/MapView.loader.test.mjs && node src/components/map/MapView.zoom.test.mjs"
   },
   "dependencies": {
     "jszip": "^3.10.1",

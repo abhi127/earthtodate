@@ -95,6 +95,7 @@ export default function MenuBar({ onMenuAction }) {
         { label: 'OSM', action: 'basemap-osm' },
         { label: 'Satellite', action: 'basemap-satellite' },
         { label: 'Terrain', action: 'basemap-terrain' },
+        { label: 'Sentinel', action: 'basemap-sentinel' },
         { separator: true },
       ],
     },

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import styles from './MapControls.module.css';
 
-export default function MapControls({ map, measureSlotRef }) {
+export default function MapControls({ map, measureSlotRef, layerInspectorOpen, onToggleLayerInspector }) {
   const ol = window.ol;
 
   const zoomIn = useCallback(() => {
@@ -82,6 +82,19 @@ export default function MapControls({ map, measureSlotRef }) {
         </button>
       </div>
       <div className={styles.section}>
+        <button
+          className={`${styles.btn} ${layerInspectorOpen ? styles.btnActive : ''}`}
+          onClick={onToggleLayerInspector}
+          title="Inspect map layers"
+          aria-label="Inspect map layers"
+          aria-pressed={layerInspectorOpen}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2" />
+            <polyline points="2 12 12 17 22 12" />
+            <polyline points="2 17 12 22 22 17" />
+          </svg>
+        </button>
         <button className={styles.btn} onClick={resetHome} title="Home">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m4 0a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v4m6-8l2 2"/>
