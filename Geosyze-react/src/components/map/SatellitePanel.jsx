@@ -228,7 +228,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
 
   // Shared rail category changed → reset this panel's product if it no longer fits
   useEffect(() => {
-    const list = RAIL_CATEGORIES[category].products;
+    const list = (RAIL_CATEGORIES[category] ?? RAIL_CATEGORIES.visual).products;
     if (!list.includes(product)) setProduct(list[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
@@ -304,7 +304,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
   if (!open) return null;
 
   // Build visible control list
-  const categoryProducts = RAIL_CATEGORIES[category].products;
+  const categoryProducts = (RAIL_CATEGORIES[category] ?? RAIL_CATEGORIES.visual).products;
   const controls = [
     { key: 'product', el: (
       <select key="product" className={styles.select} value={product} onChange={handleProductChange}>
