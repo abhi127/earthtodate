@@ -24,6 +24,39 @@ export function featuresToCSV(features, ol) {
   return rows.map(r => r.join(',')).join('\n');
 }
 
+// ── text export content builder ───────────────────────────────────────
+// Pure content builder for the single-file text formats (geojson/kml/gpx/
+// wkt/csv). Returns { content, filename, mimeType }, or null for formats
+// handled elsewhere (shapefile) or unknown. Extracted from MapView.jsx.
+export function featuresToExportContent(features, ol, format) {
+  let content, filename, mimeType;
+  switch (format) {
+    case 'geojson':
+      content = new ol.format.GeoJSON().writeFeatures(features, { featureProjection: 'EPSG:3857' });
+      filename = 'export.geojson'; mimeType = 'application/geo+json';
+      break;
+    case 'kml':
+      content = new ol.format.KML().writeFeatures(features, { featureProjection: 'EPSG:3857' });
+      filename = 'export.kml'; mimeType = 'application/vnd.google-earth.kml+xml';
+      break;
+    case 'gpx':
+      content = new ol.format.GPX().writeFeatures(features, { featureProjection: 'EPSG:3857' });
+      filename = 'export.gpx'; mimeType = 'application/gpx+xml';
+      break;
+    case 'wkt':
+      content = features.map(f => new ol.format.WKT().writeFeature(f, { featureProjection: 'EPSG:3857' })).join('\n');
+      filename = 'export.wkt'; mimeType = 'text/plain';
+      break;
+    case 'csv':
+      content = featuresToCSV(features, ol);
+      filename = 'export.csv'; mimeType = 'text/csv';
+      break;
+    default:
+      return null;
+  }
+  return { content, filename, mimeType };
+}
+
 // ── shapefile binary writer ─────────────────────────────────────────
 // ponytail: minimal writer for Point / LineString / Polygon in EPSG:4326
 export function writeShpHeader(dataView, fileLength, shapeType, bounds) {

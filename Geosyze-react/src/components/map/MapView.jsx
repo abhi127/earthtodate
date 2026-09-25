@@ -11,11 +11,11 @@ import { SATELLITE_PANEL_START, SATELLITE_OPEN_RESOLUTION } from './satelliteDef
 import { SATELLITE_MIN_ZOOM, SATELLITE_MAX_ZOOM, isSatelliteAllowed, disposeRequestContext, resolveR5mViewtype } from './satelliteLayers';
 import { resolveLayout } from './mapCount';
 import {Tile} from 'ol/layer'
-import { BASEMAP_IDS, createBasemapSource } from './basemaps';
+import { BASEMAP_IDS, BASEMAP_NAMES, createBasemapSource } from './basemaps';
 import styles from './MapView.module.css';
 
 import { createTileLoader, satelliteTileLoadFunction as satLoadFn } from './satelliteTileLoader';
-import { downloadBlob, featuresToCSV, exportShapefile } from './mapExport';
+import { downloadBlob, exportShapefile, featuresToExportContent } from './mapExport';
 // Satellite products are unavailable below z12. The source tile grid alone does
 // not enforce that floor: OpenLayers clamps the selected tile zoom to minZoom,
 // so a z9.9 view would otherwise keep requesting z12 tiles.
@@ -80,17 +80,8 @@ const MapView = forwardRef(function MapView({
     const layers = Object.fromEntries(BASEMAP_IDS.map((id) => [id, new ol.layer.Tile({ source: createBasemapSource(ol, id), visible: id === 'osm' })]));
     basemapRefs.current = layers;
 
-    const basemapNames = {
-      osm: 'OSM',
-      satellite: 'Esri',
-      terrain: 'Terrain',
-      light: 'CARTO',
-      streets: 'Streets',
-      dark: 'Dark',
-      sentinel: 'Sentinel',
-    };
     Object.entries(layers).forEach(([id, layer]) => {
-      layer.set('inspectorName', `Basemap: ${basemapNames[id]}`);
+      layer.set('inspectorName', `Basemap: ${BASEMAP_NAMES[id]}`);
       layer.set('inspectorCategory', 'Basemap');
       layer.set('basemapId', id);
     });
@@ -174,35 +165,13 @@ const MapView = forwardRef(function MapView({
     const features = vectorSource.current.getFeatures();
     if (!features.length) return;
 
-    let content, filename, mimeType;
-    switch (format) {
-      case 'geojson':
-        content = new ol.format.GeoJSON().writeFeatures(features, { featureProjection: 'EPSG:3857' });
-        filename = 'export.geojson'; mimeType = 'application/geo+json';
-        break;
-      case 'kml':
-        content = new ol.format.KML().writeFeatures(features, { featureProjection: 'EPSG:3857' });
-        filename = 'export.kml'; mimeType = 'application/vnd.google-earth.kml+xml';
-        break;
-      case 'gpx':
-        content = new ol.format.GPX().writeFeatures(features, { featureProjection: 'EPSG:3857' });
-        filename = 'export.gpx'; mimeType = 'application/gpx+xml';
-        break;
-      case 'wkt':
-        content = features.map(f => new ol.format.WKT().writeFeature(f, { featureProjection: 'EPSG:3857' })).join('\n');
-        filename = 'export.wkt'; mimeType = 'text/plain';
-        break;
-      case 'csv':
-        content = featuresToCSV(features, ol);
-        filename = 'export.csv'; mimeType = 'text/csv';
-        break;
-      case 'shapefile':
-        exportShapefile(features);
-        return; // async, handles its own download
-      default:
-        return;
+    if (format === 'shapefile') {
+      exportShapefile(features);
+      return; // async, handles its own download
     }
-    downloadBlob(new Blob([content], { type: mimeType }), filename);
+    const result = featuresToExportContent(features, ol, format);
+    if (!result) return;
+    downloadBlob(new Blob([result.content], { type: result.mimeType }), result.filename);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useImperativeHandle(ref, () => ({

@@ -82,8 +82,7 @@ export default function MapCompare({
     const pos = Math.max(0, extraIdsRef.current.indexOf(id));
     const anchor = activeBasemap || 'osm';
     return BASEMAP_IDS[(BASEMAP_IDS.indexOf(anchor) + pos + 1) % BASEMAP_IDS.length];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeBasemap]);
 
   const baseFor = useCallback((id) => basesById[id] || defaultBaseFor(id), [basesById, defaultBaseFor]);
 
@@ -223,7 +222,7 @@ export default function MapCompare({
       syncCleanup.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extraIds.length, hasExtras]);
+  }, [extraIds, hasExtras]);
 
   // ── Unmount: destroy all extra maps ───────────────────────────────────
   useEffect(() => () => {
