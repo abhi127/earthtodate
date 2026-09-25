@@ -10,6 +10,7 @@ import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
 import { SATELLITE_PANEL_START, SATELLITE_OPEN_RESOLUTION } from './satelliteDefaults';
 import { resolveLayout } from './mapCount';
 import {Tile} from 'ol/layer'
+import { BASEMAP_IDS, createBasemapSource } from './basemaps';
 import styles from './MapView.module.css';
 
 import { createTileLoader, satelliteTileLoadFunction as satLoadFn } from './satelliteTileLoader';
@@ -77,57 +78,7 @@ const MapView = forwardRef(function MapView({
     vectorSource.current = new ol.source.Vector();
     const vectorLayer = new ol.layer.Vector({ source: vectorSource.current });
 
-    const layers = {
-      osm: new ol.layer.Tile({ source: new ol.source.OSM(), visible: true }),
-      satellite: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          maxZoom: 19,
-          attributions: '&copy; Esri',
-        }),
-        visible: false,
-      }),
-      terrain: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
-          maxZoom: 17,
-          attributions: '&copy; OpenTopoMap',
-        }),
-        visible: false,
-      }),
-      light: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-          maxZoom: 19,
-          attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
-        }),
-        visible: false,
-      }),
-      streets: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-          maxZoom: 19,
-          attributions: '&copy; Esri',
-        }),
-        visible: false,
-      }),
-      dark: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-          maxZoom: 19,
-          attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
-        }),
-        visible: false,
-      }),
-      sentinel: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg',
-          maxZoom: 14,
-          attributions: 'Sentinel-2 cloudless - <a href="https://s2maps.eu">EOX</a> (Contains modified Copernicus Sentinel data)',
-        }),
-        visible: false,
-      }),
-    };
+    const layers = Object.fromEntries(BASEMAP_IDS.map((id) => [id, new ol.layer.Tile({ source: createBasemapSource(ol, id), visible: id === 'osm' })]));
     basemapRefs.current = layers;
 
     const basemapNames = {
