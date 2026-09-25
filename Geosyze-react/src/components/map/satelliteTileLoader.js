@@ -10,7 +10,16 @@ export function abortError() {
   return error;
 }
 
-export function createTileLoader({ maxConcurrent = 6, stillDelay = 300, scheduler = { setTimeout, clearTimeout } } = {}) {
+// `scheduler` delegates to the globals; tests inject a fake pair.
+// NOTE: the default must NOT capture `{ setTimeout, clearTimeout }` by value:
+// detached window timers called as plain-object methods throw
+// "Illegal invocation" in Chrome. Bare global calls are the safe shape.
+const defaultScheduler = {
+  setTimeout: (...args) => setTimeout(...args),
+  clearTimeout: (id) => clearTimeout(id),
+};
+
+export function createTileLoader({ maxConcurrent = 6, stillDelay = 300, scheduler = defaultScheduler } = {}) {
   let active = 0;
   let still = false;
   let timer = null;

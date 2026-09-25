@@ -27,4 +27,21 @@ assert.equal(g2.active, 6);
 g2.release();
 await extra;
 
+// Default scheduler must delegate to the globals at call time (not hold
+// detached copies): a captured window.setTimeout/clearTimeout called as a
+// plain-object method throws "Illegal invocation" in Chrome. Create the
+// loader BEFORE swapping the global, so a capturing implementation misses
+// the spy while a delegating one hits it.
+const lateLoader = createTileLoader({ stillDelay: 20 });
+const realSetTimeout = globalThis.setTimeout;
+let spyCalls = 0;
+globalThis.setTimeout = (fn, ms, ...rest) => { spyCalls++; return realSetTimeout(fn, ms, ...rest); };
+try {
+  await lateLoader.wait();
+  lateLoader.release();
+  assert.ok(spyCalls > 0, 'default scheduler must call through to global setTimeout');
+} finally {
+  globalThis.setTimeout = realSetTimeout;
+}
+
 console.log('satellite tile loader: OK');
