@@ -13,118 +13,15 @@ import { resolveLayout } from './mapCount';
 import {Tile} from 'ol/layer'
 import styles from './MapView.module.css';
 
-// ponytail: coalesced satellite tile loader. Pan/zoom bursts ask OL to fetch many
-// tiles at once; we hold them back (debounced) until the map has been still for
-// STILL_DELAY ms, then flush at MAX_CONCURRENT_TILES fetches at a time. Debounce
-// prevents firing a flood of requests mid-gesture; the concurrency cap bounds the
-// post-still burst. Each tile is loaded into its own image exactly as OL's
-// documented custom tileLoadFunction expects (no clobbering of OL's load/error
-// listeners), so removed layers clean up instead of leaving a ghost layer.
-const MAX_CONCURRENT_TILES = 6;
-const STILL_DELAY = 300;
+import { createTileLoader, satelliteTileLoadFunction as satLoadFn } from './satelliteTileLoader';
 // Satellite products are unavailable below z12. The source tile grid alone does
 // not enforce that floor: OpenLayers clamps the selected tile zoom to minZoom,
 // so a z9.9 view would otherwise keep requesting z12 tiles.
 const SATELLITE_MIN_ZOOM = 12;
 const SATELLITE_MAX_ZOOM = 21;
-let satActive = 0;
-let satStill = false;
-let satTimer = null;
-const satQueue = [];
-
-// Reset/arm the "still" window: every new tile request pushes the quiet start
-// out by STILL_DELAY, so nothing fetches until the map stops moving.
-function satArm() {
-  satStill = false;
-  clearTimeout(satTimer);
-  satTimer = setTimeout(() => {
-    satStill = true;
-    satTick();
-  }, STILL_DELAY);
-}
-
-// Start queued fetches — only when the map is still AND a slot is free.
-function satTick() {
-  while (satStill && satActive < MAX_CONCURRENT_TILES && satQueue.length) {
-    const run = satQueue.shift();
-    satActive++;
-    run();
-  }
-}
-
-function satWait() {
-  satArm();
-  return new Promise((resolve) => {
-    satQueue.push(resolve);
-    satTick();
-  });
-}
-function satRelease() {
-  satActive--;
-  satTick();
-}
-
-// Tiles that failed (no imagery / upstream error). OL re-requests the same
-// tile whenever it becomes visible again (pan, zoom, layer churn), so remember
-// failures and short-circuit to a transparent tile instead of re-hitting the
-// network each time.
-const tileFailCache = new Set();
-// A real 1×1 RGBA pixel with alpha 0. The previous value was half-green and
-// OpenLayers scaled it across the whole tile during loading/abort transitions.
-const TRANSPARENT_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
-
-function abortError() {
-  const error = new Error('Satellite tile request superseded');
-  error.name = 'AbortError';
-  return error;
-}
-
+const __satLoader = createTileLoader({ maxConcurrent: 6, stillDelay: 300 });
 function satelliteTileLoadFunction(tile, src, requestContext) {
-  const image = tile.getImage();
-
-  if (tileFailCache.has(src)) {
-    image.src = TRANSPARENT_TILE;
-    return;
-  }
-
-  satWait()
-    .then(() => {
-      // The layer may have been removed, replaced, or zoomed below its product
-      // floor while this tile waited in the debounce queue. Do not turn that
-      // stale queue entry into a server request.
-      if (!requestContext.active) throw abortError();
-
-      const controller = new AbortController();
-      requestContext.controllers.add(controller);
-      return fetch(src, { signal: controller.signal })
-        .then((res) => {
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res.blob();
-        })
-        .then((blob) => {
-          if (!requestContext.active) throw abortError();
-          const url = URL.createObjectURL(blob);
-          // OpenLayers attaches its own load/error listeners (addEventListener)
-          // before this resolves, so only set img.src and let it finalize the tile.
-          image.src = url;
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
-        })
-        .finally(() => requestContext.controllers.delete(controller));
-    })
-    .catch((err) => {
-      // Fire OpenLayers' image error listener (via addEventListener) so the
-      // tile finals as ERROR instead of hanging in LOADING; hanging LOADING
-      // tiles are what leave a stale/ghost layer behind. Aborted/stale tiles
-      // belong to a source that has already been removed, so finalize them as
-      // transparent without recording a server failure.
-      if (err?.name === 'AbortError') {
-        image.src = TRANSPARENT_TILE;
-      } else {
-        tileFailCache.add(src);
-        image.dispatchEvent(new Event('error'));
-      }
-    })
-    .finally(satRelease);
+  return satLoadFn(tile, src, requestContext, __satLoader);
 }
 
 const MapView = forwardRef(function MapView({
