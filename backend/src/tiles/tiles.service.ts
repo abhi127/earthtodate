@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Agent } from 'undici';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Agent, fetch as undiciFetch } from 'undici';
 
 // Immutable tiles (content-addressed by view/z/x/y + date params) cache for
 // a day in the proxy and in browsers. Mutable endpoints (/dates, pollution)
@@ -49,7 +49,12 @@ export class TilesService {
   private sessionCookie: string | null = null;
   private loginPromise: Promise<string> | null = null;
 
-  constructor() {
+  constructor(
+    // Fetch implementation, injectable for tests. Defaults to undici's fetch
+    // (same copy as the keep-alive Agent — Node's built-in fetch rejects a
+    // foreign dispatcher with "fetch failed").
+    @Optional() private readonly doFetch: (url: string, init?: any) => Promise<any> = undiciFetch as any,
+  ) {
     this.baseUrl = process.env.TILE_SERVER_BASE_URL || 'http://localhost:8000';
   }
 
@@ -73,7 +78,7 @@ export class TilesService {
       throw new Error('TILE_SERVER_EMAIL and TILE_SERVER_API_KEY must be set');
     }
 
-    const res = await fetch(`${this.baseUrl}/login`, {
+    const res = await this.doFetch(`${this.baseUrl}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, api_key: apiKey }),
@@ -114,13 +119,13 @@ export class TilesService {
 
     // Proxy to tile server, retrying once after re-login if the session expired mid-flight.
     const started = Date.now();
-    let res = await fetch(fullUrl, { headers, dispatcher: this.agent } as any);
+    let res = await this.doFetch(fullUrl, { headers, dispatcher: this.agent } as any);
     if ((res.status === 401 || res.status === 403) && this.sessionCookie) {
       this.logger.warn(`Session rejected (${res.status}), re-logging in and retrying`);
       this.sessionCookie = null;
       this.loginPromise = null;
       headers.cookie = await this.getSessionCookie();
-      res = await fetch(fullUrl, { headers, dispatcher: this.agent } as any);
+      res = await this.doFetch(fullUrl, { headers, dispatcher: this.agent } as any);
     }
     const upstreamMs = Date.now() - started;
     if (!res.ok) {

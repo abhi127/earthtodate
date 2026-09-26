@@ -30,7 +30,7 @@ describe('TilesService session cookie', () => {
     }) as unknown as typeof fetch;
     globalThis.fetch = fetchMock;
 
-    const svc = new TilesService();
+    const svc = new TilesService(fetchMock as unknown as typeof fetch);
     await svc.proxy('/v2/x/1/2/3', '');
     await svc.proxy('/v2/x/1/2/3', '');
 
@@ -61,7 +61,7 @@ describe('TilesService session cookie', () => {
     }) as unknown as typeof fetch;
     globalThis.fetch = fetchMock;
 
-    const svc = new TilesService();
+    const svc = new TilesService(fetchMock as unknown as typeof fetch);
     // Force a known (rejected) seed cookie.
     svc['sessionCookie'] = 'session=old';
 
@@ -107,7 +107,7 @@ describe('TilesService proxy performance', () => {
   it('reuses connections via dispatcher and forces identity encoding', async () => {
     const fetchMock = mockUpstream();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const svc = new TilesService();
+    const svc = new TilesService(fetchMock as unknown as typeof fetch);
     await svc.proxy('/v2/a/1/2/3', 'end_date=2026-07-12');
     const init = fetchMock.mock.calls.find(([u]) => String(u).includes('/v2/a'))?.[1];
     expect(init.dispatcher).toBeDefined();
@@ -121,7 +121,7 @@ describe('TilesService proxy performance', () => {
     jest.spyOn(Logger.prototype as any, 'log').mockImplementation((m: any) => {
       logs.push(String(m));
     });
-    const svc = new TilesService();
+    const svc = new TilesService(fetchMock as unknown as typeof fetch);
     await svc.proxy('/v2/a/1/2/3', '');
     expect(logs.some((l) => l.includes('session='))).toBe(false);
     expect(logs.some((l) => /upstream=\d+ms/.test(l))).toBe(true);
@@ -132,7 +132,7 @@ describe('TilesService proxy performance', () => {
     const t0 = Date.now();
     const fetchMock = mockUpstream();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const svc = new TilesService();
+    const svc = new TilesService(fetchMock as unknown as typeof fetch);
     await svc.proxy('/v2/a/1/2/3', '');
     const tileCalls = () =>
       fetchMock.mock.calls.filter(([u]) => !String(u).endsWith('/login')).length;
