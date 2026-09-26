@@ -193,7 +193,7 @@ function computeViewtype({ product, sensor, spectral, soilSalinity, pollution, p
 
 const SENSOR_SPECTRAL_ONLY = new Set(['s2dr', 's2']);
 
-export default function SatellitePanel({ open, onViewtypeChange, right, narrow, category, onCategoryChange, getViewCenter }) {
+export default function SatellitePanel({ open, onViewtypeChange, right, narrow, category, onCategoryChange, getViewCenter, compareActive, onToggleCompare }) {
   const [product, setProduct] = useState('visual');
   const [sensor, setSensor] = useState(right ? 's2rr' : 's2');
   const [spectral, setSpectral] = useState('_ndvi');
@@ -374,6 +374,21 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
           <line x1="16" y1="2" x2="16" y2="6"/>
           <line x1="8" y1="2" x2="8" y2="6"/>
           <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </button>
+    )}] : []),
+    ...(onToggleCompare ? [{ key: 'compare', el: (
+      <button
+        key="compare"
+        type="button"
+        className={`${styles.modeBtn} ${compareActive ? styles.modeActive : ''}`}
+        onClick={() => onToggleCompare?.()}
+        title={compareActive ? 'Exit compare' : 'Compare maps'}
+        aria-pressed={!!compareActive}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="18" rx="1" />
+          <rect x="14" y="3" width="7" height="18" rx="1" />
         </svg>
       </button>
     )}] : []),

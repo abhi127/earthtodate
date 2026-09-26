@@ -518,6 +518,10 @@ const MapView = forwardRef(function MapView({
   }, [hasExtras, layoutMode, mapCount]);
 
   const layout = resolveLayout(mapCount, layoutMode);
+  const handleCompareToggle = useCallback(() => {
+    if (hasExtras) onRemoveAllExtras?.();
+    else onAddMap?.();
+  }, [hasExtras, onAddMap, onRemoveAllExtras]);
   let containerClass = styles.container;
   if (layout === 'compare') containerClass += ` ${styles.compareActive}`;
   else if (layout === 'swipe') containerClass += ` ${styles.compareActive} ${styles.compareSwipeMode}`;
@@ -534,6 +538,8 @@ const MapView = forwardRef(function MapView({
           category={satCategory}
           onCategoryChange={onSatCategoryChange}
           getViewCenter={getMainViewCenter}
+          compareActive={hasExtras}
+          onToggleCompare={handleCompareToggle}
         />
         {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
       </div>
