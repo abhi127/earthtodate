@@ -18,6 +18,7 @@ export default function MapPage() {
   const [layoutMode, setLayoutMode] = useState('compare'); // 'compare' | 'swipe' (swipe: exactly 2 maps)
   const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
   const [extraSatOpen, setExtraSatOpen] = useState({}); // id -> bool
+  const [searchTick, setSearchTick] = useState(0); // bumps on every search jump
   // Ids of extra maps auto-added alongside the satellite panel (as opposed to
   // maps the user added manually via compare controls). Closing the satellite
   // panel removes auto-added maps but keeps manual ones.
@@ -102,6 +103,9 @@ export default function MapPage() {
 
   const handleSearch = useCallback((lngLat, zoom) => {
     mapRef.current?.flyTo(lngLat, zoom);
+    // Nudge open satellite panels to re-resolve their default date for the
+    // new location once the fly-to animation lands.
+    setSearchTick(t => t + 1);
   }, []);
 
   const handleClear = useCallback(() => {
@@ -192,6 +196,7 @@ export default function MapPage() {
             satellitePanelOpen={satellitePanelOpen}
             setSatellitePanelOpen={setSatellitePanelOpen}
             extraSatOpen={extraSatOpen}
+            searchTick={searchTick}
             onBasemapChange={setActiveBasemap}
             satCategory={satCategory}
             onSatCategoryChange={setSatCategory}

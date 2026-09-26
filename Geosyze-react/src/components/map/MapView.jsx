@@ -34,6 +34,7 @@ const MapView = forwardRef(function MapView({
   satellitePanelOpen,
   setSatellitePanelOpen,
   extraSatOpen,
+  searchTick = 0,
   onBasemapChange,
   satCategory,
   onSatCategoryChange
@@ -389,9 +390,10 @@ const MapView = forwardRef(function MapView({
       category={satCategory}
       onCategoryChange={onSatCategoryChange}
       getViewCenter={() => getExtraViewCenter(id)}
+      relocateTick={searchTick}
     />
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [extraSatOpen, satCategory, extraMapsTick, mapCount]);
+  ), [extraSatOpen, satCategory, extraMapsTick, mapCount, searchTick]);
 
   const renderExtraLegend = useCallback((id) => {
     if (!extraSatOpen?.[id]) return null;
@@ -540,6 +542,7 @@ const MapView = forwardRef(function MapView({
           getViewCenter={getMainViewCenter}
           compareActive={hasExtras}
           onToggleCompare={handleCompareToggle}
+          relocateTick={searchTick}
         />
         {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
       </div>

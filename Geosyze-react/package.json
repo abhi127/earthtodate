@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/components/map/basemaps.test.mjs && node src/components/map/mapCount.test.mjs && node src/components/map/datesLocation.test.mjs && node src/components/map/satelliteDefaults.test.mjs && node src/components/map/MapView.loader.test.mjs && node src/components/map/MapView.zoom.test.mjs && node src/components/map/satelliteTileLoader.test.mjs && node src/components/map/mapExport.test.mjs && node src/components/map/satelliteLayers.test.mjs"
+    "test": "node src/components/map/basemaps.test.mjs && node src/components/map/mapCount.test.mjs && node src/components/map/datesLocation.test.mjs && node src/components/map/satelliteDefaults.test.mjs && node src/components/map/MapView.loader.test.mjs && node src/components/map/MapView.zoom.test.mjs && node src/components/map/satelliteTileLoader.test.mjs && node src/components/map/mapExport.test.mjs && node src/components/map/satelliteLayers.test.mjs && node src/components/map/satelliteDate.test.mjs"
   },
   "dependencies": {
     "jszip": "^3.10.1",
