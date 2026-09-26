@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import TopBar from '../components/layout/TopBar';
 import Sidebar from '../components/layout/Sidebar';
 import MapView from '../components/map/MapView';
-import { MAX_MAPS, canAddMap } from '../components/map/mapCount';
+import { canAddMap } from '../components/map/mapCount';
 import styles from './MapPage.module.css';
 
 const SAT_CATEGORY = { e2d: 'visual', ai: 'ai', analytics: 'analytics' };
@@ -18,9 +18,12 @@ export default function MapPage() {
   const [layoutMode, setLayoutMode] = useState('compare'); // 'compare' | 'swipe' (swipe: exactly 2 maps)
   const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
   const [extraSatOpen, setExtraSatOpen] = useState({}); // id -> bool
+  // Ids of extra maps auto-added alongside the satellite panel (as opposed to
+  // maps the user added manually via compare controls). Closing the satellite
+  // panel removes auto-added maps but keeps manual ones.
+  const autoSatIds = useRef(new Set());
   const mapRef = useRef(null);
 
-  const mapCount = 1 + extraIds.length;
   const extraIdsRef = useRef(extraIds);
   extraIdsRef.current = extraIds;
   const satellitePanelOpenRef = useRef(satellitePanelOpen);
@@ -35,6 +38,7 @@ export default function MapPage() {
   }, []);
 
   const removeMap = useCallback((id) => {
+    autoSatIds.current.delete(id);
     setExtraIds(prev => prev.filter(x => x !== id));
     setExtraSatOpen(prev => {
       if (!(id in prev)) return prev;
@@ -45,6 +49,7 @@ export default function MapPage() {
   }, []);
 
   const removeAllExtras = useCallback(() => {
+    autoSatIds.current.clear();
     setExtraIds([]);
     setExtraSatOpen({});
   }, []);
@@ -55,14 +60,27 @@ export default function MapPage() {
   }, [extraIds.length, addMap, removeAllExtras]);
 
   // Opening the satellite panel starts in compare view: ensure the second
-  // map exists. Only fires on the closed->open transition, so deleting back
-  // to the single main map while satellite stays open is respected (min 1).
-  // Closing satellite never forces maps closed.
+  // map exists and record it as auto-added. Only fires on the closed->open
+  // transition, so deleting back to the single main map while satellite stays
+  // open is respected (min 1). Closing the satellite panel closes every
+  // satellite panel and removes auto-added maps; manually added compare maps
+  // are kept.
   const wasSatOpen = useRef(satellitePanelOpen);
   useEffect(() => {
     const was = wasSatOpen.current;
     wasSatOpen.current = satellitePanelOpen;
-    if (satellitePanelOpen && !was && extraIds.length === 0) addMap();
+    if (satellitePanelOpen && !was && extraIds.length === 0) {
+      // addMap() synchronously consumes nextExtraId.current, so the id is
+      // known before the state updates flush.
+      const id = nextExtraId.current;
+      addMap();
+      autoSatIds.current.add(id);
+    } else if (!satellitePanelOpen && was) {
+      const auto = autoSatIds.current;
+      autoSatIds.current = new Set();
+      if (auto.size > 0) setExtraIds(prev => prev.filter(x => !auto.has(x)));
+      setExtraSatOpen({});
+    }
   }, [satellitePanelOpen, extraIds.length, addMap]);
 
   // Earth to Date, AI and Analytics are the three satellite product categories.
@@ -157,7 +175,7 @@ export default function MapPage() {
 
   return (
     <div className={styles.page}>
-      <TopBar onMenuAction={handleMenuAction} mapCount={mapCount} maxMaps={MAX_MAPS} onToggleCompare={toggleCompare} onSearch={handleSearch} />
+      <TopBar onMenuAction={handleMenuAction} onSearch={handleSearch} />
       <div className={styles.body}>
         <Sidebar
           activePanel={activePanel}
@@ -166,6 +184,8 @@ export default function MapPage() {
           onSelectBasemap={handleSelectBasemap}
           satelliteOpen={anySatelliteOpen}
           satCategory={satCategory}
+          compareActive={extraIds.length > 0}
+          onToggleCompare={toggleCompare}
         />
         <main className={styles.mapArea}>
           <MapView

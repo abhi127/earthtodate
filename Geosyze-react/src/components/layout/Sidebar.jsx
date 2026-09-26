@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import SearchPanel from '../search/SearchPanel';
 import { BASEMAP_DEFS } from '../map/basemaps';
+import { MAX_MAPS } from '../map/mapCount';
 import { CATEGORY_ICONS } from '../map/satelliteCategories';
 import styles from './Sidebar.module.css';
 
@@ -21,6 +22,10 @@ const RAIL_ITEMS = [
   {
     id: 'archive', label: 'Archive Search',
     icon: <svg {...ICON}><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
+  },
+  {
+    id: 'compare', label: 'Compare maps',
+    icon: <svg {...ICON}><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>,
   },
   {
     id: 'e2d', label: 'Earth to Date',
@@ -152,7 +157,7 @@ function PlaceholderPanel({ note }) {
 // a side panel.
 const SAT_CATEGORY = { e2d: 'visual', ai: 'ai', analytics: 'analytics' };
 
-export default function Sidebar({ activePanel, onSelectPanel, activeBasemap, onSelectBasemap, satelliteOpen, satCategory }) {
+export default function Sidebar({ activePanel, onSelectPanel, activeBasemap, onSelectBasemap, satelliteOpen, satCategory, compareActive, onToggleCompare }) {
   const item = RAIL_ITEMS.find(i => i.id === activePanel);
 
   function renderPanel() {
@@ -178,6 +183,20 @@ export default function Sidebar({ activePanel, onSelectPanel, activeBasemap, onS
     <div className={styles.sidebar}>
       <nav className={styles.rail}>
         {RAIL_ITEMS.filter(r => !r.hidden).map(railItem => {
+          if (railItem.id === 'compare') {
+            return (
+              <button
+                key={railItem.id}
+                className={`${styles.railBtn} ${compareActive ? styles.railActive : ''}`}
+                onClick={() => onToggleCompare?.()}
+                title={compareActive ? 'Exit compare' : `Compare maps (up to ${MAX_MAPS})`}
+                aria-label={railItem.label}
+                aria-pressed={!!compareActive}
+              >
+                {railItem.icon}
+              </button>
+            );
+          }
           const cat = SAT_CATEGORY[railItem.id];
           const active = cat
             ? satelliteOpen && satCategory === cat
