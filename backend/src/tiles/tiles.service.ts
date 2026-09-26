@@ -1,4 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Agent } from 'undici';
+
+// Immutable tiles (content-addressed by view/z/x/y + date params) cache for
+// a day in the proxy and in browsers. Mutable endpoints (/dates, pollution)
+// keep their short TTLs at the call sites.
+const TILE_CACHE_TTL_MS = 86_400_000;
 
 // Simple in-memory cache with TTL — no deps needed.
 class TileCache {
@@ -36,6 +42,9 @@ class TileCache {
 export class TilesService {
   private cache = new TileCache();
   private readonly logger = new Logger(TilesService.name);
+  // Shared keep-alive pool to upstream: without this every tile pays a fresh
+  // TCP+TLS handshake (seconds per tile under burst load).
+  private readonly agent = new Agent({ connections: 50, keepAliveTimeout: 60_000 });
   private baseUrl: string;
   private sessionCookie: string | null = null;
   private loginPromise: Promise<string> | null = null;
@@ -82,41 +91,38 @@ export class TilesService {
     return match[0];
   }
 
-  async proxy(path: string, queryString: string, cacheTtlMs = 300_000, incomingHeaders?: Record<string, string>): Promise<{ body: Buffer; contentType: string }> {
+  async proxy(path: string, queryString: string, cacheTtlMs = TILE_CACHE_TTL_MS, incomingHeaders?: Record<string, string>): Promise<{ body: Buffer; contentType: string }> {
     const fullUrl = `${this.baseUrl}${path}${queryString ? '?' + queryString : ''}`;
     const cacheKey = `${path}?${queryString}`;
 
     // Check cache first
     const cached = this.cache.get(cacheKey);
     if (cached) {
-      this.logger.log(`CACHE HIT  ${path}`);
       return cached;
     }
 
-    this.logger.log(`PROXY  ${fullUrl}`);
-
-    this.logger.log(`PROXY HEADERS ${JSON.stringify(incomingHeaders)}`);
-
-    // Use the backend-managed session cookie (auto-renewed on expiry).
+    // Use the backend-managed session cookie (auto-renewed on expiry). Never
+    // log cookie values. Accept-Encoding is deliberately NOT forwarded: undici
+    // then negotiates and transparently decompresses itself, so cached bodies
+    // are always identity bytes (one key can never hold mixed encodings).
     const headers: Record<string, string> = {
       cookie: await this.getSessionCookie(),
       'User-Agent': incomingHeaders?.['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
       Accept: incomingHeaders?.accept || 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
       ...(incomingHeaders?.referer ? { Referer: incomingHeaders.referer } : {}),
-      ...(incomingHeaders?.['accept-encoding'] ? { 'Accept-Encoding': incomingHeaders['accept-encoding'] } : {}),
     };
-    this.logger.log(`PROXY SENT HEADERS ${JSON.stringify(headers)}`);
 
     // Proxy to tile server, retrying once after re-login if the session expired mid-flight.
-    let res = await fetch(fullUrl, { headers });
+    const started = Date.now();
+    let res = await fetch(fullUrl, { headers, dispatcher: this.agent } as any);
     if ((res.status === 401 || res.status === 403) && this.sessionCookie) {
       this.logger.warn(`Session rejected (${res.status}), re-logging in and retrying`);
       this.sessionCookie = null;
       this.loginPromise = null;
       headers.cookie = await this.getSessionCookie();
-      res = await fetch(fullUrl, { headers });
+      res = await fetch(fullUrl, { headers, dispatcher: this.agent } as any);
     }
-    this.logger.log(`UPSTREAM RESPONSE ${res.status} ${res.statusText} for ${fullUrl}`);
+    const upstreamMs = Date.now() - started;
     if (!res.ok) {
       const respBody = (await res.text()).slice(0, 2000);
       this.logger.warn(`UPSTREAM ${res.status} ${path} BODY=${respBody}`);
@@ -127,7 +133,7 @@ export class TilesService {
     const body = Buffer.from(await res.arrayBuffer());
 
     this.cache.set(cacheKey, body, contentType, cacheTtlMs);
-    this.logger.log(`CACHED ${path} (${(body.length / 1024).toFixed(1)} KB)`);
+    this.logger.log(`PROXY ${res.status} ${path} upstream=${upstreamMs}ms total=${Date.now() - started}ms size=${(body.length / 1024).toFixed(1)}KB`);
     return { body, contentType };
   }
 

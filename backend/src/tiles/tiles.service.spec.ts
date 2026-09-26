@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { TilesService } from './tiles.service';
 
 describe('TilesService session cookie', () => {
@@ -72,5 +73,75 @@ describe('TilesService session cookie', () => {
       expect.stringMatching(/\/v2\/x\/1\/2\/3$/),
       expect.objectContaining({ headers: expect.objectContaining({ cookie: 'session=refresh456' }) }),
     );
+  });
+});
+
+describe('TilesService proxy performance', () => {
+  const origFetch = globalThis.fetch;
+  const origEnv = { ...process.env };
+
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+    process.env = { ...origEnv };
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  function mockUpstream(): jest.Mock {
+    process.env.TILE_SERVER_EMAIL = 't@e.com';
+    process.env.TILE_SERVER_API_KEY = 'k';
+    return jest.fn(async (url: string, init?: any) => {
+      if (String(url).endsWith('/login')) {
+        return new Response('{}', {
+          status: 200,
+          headers: { 'set-cookie': 'session=s1; path=/' },
+        });
+      }
+      return new Response(Buffer.from([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    }) as unknown as jest.Mock;
+  }
+
+  it('reuses connections via dispatcher and forces identity encoding', async () => {
+    const fetchMock = mockUpstream();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const svc = new TilesService();
+    await svc.proxy('/v2/a/1/2/3', 'end_date=2026-07-12');
+    const init = fetchMock.mock.calls.find(([u]) => String(u).includes('/v2/a'))?.[1];
+    expect(init.dispatcher).toBeDefined();
+    expect(init.headers['Accept-Encoding']).toBeUndefined();
+  });
+
+  it('never logs the session cookie and logs upstream timing', async () => {
+    const fetchMock = mockUpstream();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const logs: string[] = [];
+    jest.spyOn(Logger.prototype as any, 'log').mockImplementation((m: any) => {
+      logs.push(String(m));
+    });
+    const svc = new TilesService();
+    await svc.proxy('/v2/a/1/2/3', '');
+    expect(logs.some((l) => l.includes('session='))).toBe(false);
+    expect(logs.some((l) => /upstream=\d+ms/.test(l))).toBe(true);
+  });
+
+  it('keeps immutable tiles cached for 24h', async () => {
+    jest.useFakeTimers();
+    const t0 = Date.now();
+    const fetchMock = mockUpstream();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const svc = new TilesService();
+    await svc.proxy('/v2/a/1/2/3', '');
+    const tileCalls = () =>
+      fetchMock.mock.calls.filter(([u]) => !String(u).endsWith('/login')).length;
+    expect(tileCalls()).toBe(1);
+    jest.setSystemTime(t0 + 23 * 3600_000);
+    await svc.proxy('/v2/a/1/2/3', '');
+    expect(tileCalls()).toBe(1);
+    jest.setSystemTime(t0 + 25 * 3600_000);
+    await svc.proxy('/v2/a/1/2/3', '');
+    expect(tileCalls()).toBe(2);
   });
 });

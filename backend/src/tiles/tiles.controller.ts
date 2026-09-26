@@ -12,7 +12,9 @@ export class TilesController {
 
   private getForwardHeaders(req: Request): Record<string, string> {
     const h: Record<string, string> = {};
-    const fwd = ['user-agent', 'accept', 'referer', 'accept-encoding', 'origin'];
+    // accept-encoding is deliberately excluded: the proxy always caches
+    // identity bytes (see TilesService).
+    const fwd = ['user-agent', 'accept', 'referer', 'origin'];
     for (const key of fwd) {
       const val = req.headers[key];
       if (val) h[key] = Array.isArray(val) ? val[0] : val;
@@ -20,10 +22,10 @@ export class TilesController {
     return h;
   }
 
-  private async handleProxy(res: Response, req: Request, path: string, queryString: string, cacheTtlMs = 300_000) {
+  private async handleProxy(res: Response, req: Request, path: string, queryString: string, cacheTtlMs = 86_400_000) {
     try {
       const result = await this.tilesService.proxy(path, queryString, cacheTtlMs, this.getForwardHeaders(req));
-      res.set({ 'Content-Type': result.contentType, 'Cache-Control': 'public, max-age=300' });
+      res.set({ 'Content-Type': result.contentType, 'Cache-Control': 'public, max-age=86400' });
       res.send(result.body);
     } catch (e: any) {
       this.logger.error(`${e.message}`);
