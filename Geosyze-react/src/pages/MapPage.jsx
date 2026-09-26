@@ -54,11 +54,6 @@ export default function MapPage() {
     setExtraSatOpen({});
   }, []);
 
-  const toggleCompare = useCallback(() => {
-    if (extraIds.length > 0) removeAllExtras();
-    else addMap();
-  }, [extraIds.length, addMap, removeAllExtras]);
-
   // Opening the satellite panel starts in compare view: ensure the second
   // map exists and record it as auto-added. Only fires on the closed->open
   // transition, so deleting back to the single main map while satellite stays
@@ -184,8 +179,6 @@ export default function MapPage() {
           onSelectBasemap={handleSelectBasemap}
           satelliteOpen={anySatelliteOpen}
           satCategory={satCategory}
-          compareActive={extraIds.length > 0}
-          onToggleCompare={toggleCompare}
         />
         <main className={styles.mapArea}>
           <MapView
