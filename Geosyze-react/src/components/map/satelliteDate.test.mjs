@@ -1,11 +1,11 @@
-// pickBestDate: earliest date with clouds <= 2%, else least cloudy, else null.
+// pickBestDate: most recent date with clouds <= 2%, else least cloudy, else null.
 import assert from 'node:assert/strict';
 import { pickBestDate } from './satelliteDate.js';
 
-// Earliest qualifying date wins (not the latest, not the clearest).
+// Closest-to-today qualifying date wins (not the oldest, not the clearest).
 assert.equal(
   pickBestDate([['2026-09-20', '5.0'], ['2026-09-18', '1.2'], ['2026-09-19', '0.5']]),
-  '2026-09-18'
+  '2026-09-19'
 );
 
 // Boundary: exactly 2.0 qualifies.
