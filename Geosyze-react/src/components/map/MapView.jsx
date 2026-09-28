@@ -234,7 +234,10 @@ const MapView = forwardRef(function MapView({
       if (!draw) return;
       draw.on('drawend', (e) => {
         const format = new ol.format.GeoJSON();
-        const geojson = format.writeFeature(e.feature);
+        const geojson = format.writeFeature(e.feature, {
+          dataProjection: 'EPSG:4326',
+          featureProjection: map.getView().getProjection(),
+        });
         callback(JSON.parse(geojson));
       });
     },
