@@ -23,12 +23,14 @@ export default function MgpProResultsList({ results, hoveredId, pinnedIds, onHov
               )}
             </div>
             <div className={styles.info}>
-              <span className={styles.title}>{r.title}</span>
-              <span className={styles.meta}>{r.acquisitionDate?.split('T')[0] || '—'}</span>
-              <span className={styles.meta}>{r.sensor || '—'}</span>
-              <span className={styles.meta}>{r.cloudCover != null ? `${r.cloudCover}% cloud` : '—'}</span>
-              <span className={styles.meta}>{r.resolution != null ? `${r.resolution}m` : '—'}</span>
-              <span className={styles.meta}>{r.offNadirAngle != null ? `${r.offNadirAngle}° off-nadir` : '—'}</span>
+              <span className={styles.title} title={r.title}>{r.title}</span>
+              <span className={styles.date}>{r.acquisitionDate?.split('T')[0] || '—'} · {r.sensor || '—'}</span>
+              <div className={styles.metaGrid}>
+                <span className={styles.meta} title="Cloud cover">☁ <strong>{r.cloudCover != null ? `${r.cloudCover.toFixed(1)}%` : '—'}</strong></span>
+                <span className={styles.meta} title="Resolution">◈ <strong>{r.resolution != null ? `${r.resolution.toFixed(2)}m` : '—'}</strong></span>
+                <span className={styles.meta} title="Off-nadir angle">∠ <strong>{r.offNadirAngle != null ? `${r.offNadirAngle.toFixed(1)}°` : '—'}</strong></span>
+                <span className={styles.meta} title="Collection">{r.id?.slice(-6) || ''}</span>
+              </div>
             </div>
             <button className={styles.detailBtn} onClick={(e) => { e.stopPropagation(); onOpenDetail(r); }}>
               Details

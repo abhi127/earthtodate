@@ -49,21 +49,31 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
     <div className={styles.panel}>
       {SearchForm && <SearchForm mapRef={mapRef} onSearch={handleSearch} loading={loading} />}
 
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <p className={styles.error}>{error}</p>}
 
-      {!loading && !error && results.length === 0 && (
-        <p className={styles.empty}>No imagery found for this AOI and filters.</p>
+      {loading && (
+        <div className={styles.loading}>
+          <div className={styles.spinner} />
+          <span>Searching archive…</span>
+        </div>
       )}
 
-      {results.length > 0 && (
-        <MgpProResultsList
-          results={results}
-          hoveredId={hoveredId}
-          pinnedIds={pinnedIds}
-          onHover={setHoveredId}
-          onTogglePin={handleTogglePin}
-          onOpenDetail={setDetailResult}
-        />
+      {!loading && !error && results.length === 0 && (
+        <p className={styles.empty}>No imagery found for this AOI and filters.<br />Try a different area or date range.</p>
+      )}
+
+      {!loading && results.length > 0 && (
+        <>
+          <p className={styles.count}>{results.length} image{results.length === 1 ? '' : 's'} found</p>
+          <MgpProResultsList
+            results={results}
+            hoveredId={hoveredId}
+            pinnedIds={pinnedIds}
+            onHover={setHoveredId}
+            onTogglePin={handleTogglePin}
+            onOpenDetail={setDetailResult}
+          />
+        </>
       )}
 
       {detailResult && (
