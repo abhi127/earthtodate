@@ -11,12 +11,16 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
   const [hoveredId, setHoveredId] = useState(null);
   const [pinnedIds, setPinnedIds] = useState([]);
   const [detailResult, setDetailResult] = useState(null);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = useCallback(async (params) => {
     setLoading(true);
     setError('');
     setResults([]);
     setPinnedIds([]);
+    setHasSearched(true);
+    setFiltersOpen(false);
     onResultsChange?.([]);
     try {
       const res = await fetch('/api/vendors/mgp-pro/search', {
@@ -47,7 +51,20 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
 
   return (
     <div className={styles.panel}>
-      {SearchForm && <SearchForm mapRef={mapRef} onSearch={handleSearch} loading={loading} />}
+      {hasSearched && (
+        <button
+          type="button"
+          className={styles.filterToggle}
+          onClick={() => setFiltersOpen(o => !o)}
+        >
+          <span>{filtersOpen ? '▾' : '▸'} Search Filters</span>
+          {results.length > 0 && <span className={styles.filterCount}>{results.length} found</span>}
+        </button>
+      )}
+
+      {(!hasSearched || filtersOpen) && SearchForm && (
+        <SearchForm mapRef={mapRef} onSearch={handleSearch} loading={loading} />
+      )}
 
       {error && <p className={styles.error}>{error}</p>}
 
@@ -63,8 +80,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
       )}
 
       {!loading && results.length > 0 && (
-        <>
-          <p className={styles.count}>{results.length} image{results.length === 1 ? '' : 's'} found</p>
+        <div className={styles.resultsWrap}>
           <MgpProResultsList
             results={results}
             hoveredId={hoveredId}
@@ -73,7 +89,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
             onTogglePin={handleTogglePin}
             onOpenDetail={setDetailResult}
           />
-        </>
+        </div>
       )}
 
       {detailResult && (
