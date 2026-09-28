@@ -22,6 +22,8 @@ export default function MapPage() {
   const [archivalResults, setArchivalResults] = useState([]);
   const [hoveredResultId, setHoveredResultId] = useState(null);
   const [pinnedResultIds, setPinnedResultIds] = useState([]);
+  const [hiddenFootprintIds, setHiddenFootprintIds] = useState([]);
+  const [footprintsVisible, setFootprintsVisible] = useState(true);
   // Ids of extra maps auto-added alongside the satellite panel (as opposed to
   // maps the user added manually via compare controls). Closing the satellite
   // panel removes auto-added maps but keeps manual ones.
@@ -120,6 +122,9 @@ export default function MapPage() {
     setPinnedResultIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
   const handleArchivalClearPins = useCallback(() => setPinnedResultIds([]), []);
+  const handleToggleFootprint = useCallback((id) => {
+    setHiddenFootprintIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
 
   const handleMenuAction = useCallback((action) => {
     switch (action) {
@@ -199,6 +204,10 @@ export default function MapPage() {
           onArchivalHover={handleArchivalHover}
           onArchivalTogglePin={handleArchivalTogglePin}
           onArchivalClearPins={handleArchivalClearPins}
+          hiddenFootprintIds={hiddenFootprintIds}
+          footprintsVisible={footprintsVisible}
+          onToggleFootprint={handleToggleFootprint}
+          onToggleFootprintsVisible={() => setFootprintsVisible(v => !v)}
         />
         <main className={styles.mapArea}>
           <MapView
@@ -219,6 +228,8 @@ export default function MapPage() {
             archivalResults={archivalResults}
             hoveredResultId={hoveredResultId}
             pinnedResultIds={pinnedResultIds}
+            hiddenFootprintIds={hiddenFootprintIds}
+            footprintsVisible={footprintsVisible}
             onArchivalHover={handleArchivalHover}
             onArchivalTogglePin={handleArchivalTogglePin}
           />

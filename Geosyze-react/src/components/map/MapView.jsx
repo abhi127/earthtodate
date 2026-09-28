@@ -41,6 +41,8 @@ const MapView = forwardRef(function MapView({
   archivalResults = [],
   hoveredResultId = null,
   pinnedResultIds = [],
+  hiddenFootprintIds = [],
+  footprintsVisible = true,
   onArchivalHover,
   onArchivalTogglePin,
 }, ref) {
@@ -619,6 +621,8 @@ const MapView = forwardRef(function MapView({
           results={archivalResults}
           hoveredId={hoveredResultId}
           pinnedIds={pinnedResultIds}
+          hiddenIds={hiddenFootprintIds}
+          layerVisible={footprintsVisible}
           onHover={onArchivalHover}
           onTogglePin={onArchivalTogglePin}
         />
@@ -653,10 +657,14 @@ const MapView = forwardRef(function MapView({
   );
 });
 
-function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onTogglePin }) {
+function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, hiddenIds = [], layerVisible = true, onHover, onTogglePin }) {
   const layerRef = useRef(null);
   const sourceRef = useRef(null);
   const labelRef = useRef(null);
+  const hoveredRef = useRef(hoveredId);
+  hoveredRef.current = hoveredId;
+  const pinnedRef = useRef(pinnedIds);
+  pinnedRef.current = pinnedIds;
 
   useEffect(() => {
     const ol = window.ol;
@@ -669,8 +677,8 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
       source,
       style: (feature) => {
         const id = feature.get('resultId');
-        const isHovered = id === hoveredId;
-        const isPinned = pinnedIds.includes(id);
+        const isHovered = id === hoveredRef.current;
+        const isPinned = (pinnedRef.current || []).includes(id);
 
         if (isPinned) {
           return new ol.style.Style({
@@ -713,21 +721,23 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
     sourceRef.current.clear();
     results.forEach(r => {
       if (!r.footprint) return;
+      if ((hiddenIds || []).includes(r.id)) return;
       try {
         const format = new ol.format.GeoJSON();
-        const feature = format.readFeature(r.footprint);
+        const geometry = format.readGeometry(r.footprint);
+        const feature = new ol.Feature({ geometry });
         feature.set('resultId', r.id);
         feature.set('title', r.title);
         sourceRef.current.addFeature(feature);
       } catch { /* skip invalid footprint */ }
     });
-  }, [results]);
+  }, [results, hiddenIds]);
 
   useEffect(() => {
     const ol = window.ol;
     if (!ol || !layerRef.current || !map) return;
 
-    if (results.length > 0) {
+    if (results.length > 0 && layerVisible) {
       if (!map.getLayers().getArray().includes(layerRef.current)) {
         const layers = map.getLayers();
         const vecIdx = layers.getArray().findIndex(l => l instanceof ol.layer.Vector && l.get('inspectorName') === 'Drawn features');
@@ -738,7 +748,7 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
         map.removeLayer(layerRef.current);
       }
     }
-  }, [results, map]);
+  }, [results, map, layerVisible]);
 
   useEffect(() => {
     const ol = window.ol;

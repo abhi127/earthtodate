@@ -38,11 +38,37 @@
   overflow: hidden;
 }
 .count {
-  margin: 0 0 0.4rem;
+  margin: 0;
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--textMuted, #94A3B8);
+}
+.resultsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
   flex-shrink: 0;
+}
+.layerToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  background: var(--surfaceAlt, #334155);
+  border: 1px solid var(--border, #334155);
+  border-radius: 0.25rem;
+  color: var(--textMuted, #94A3B8);
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.layerToggleOn {
+  color: var(--primary, #22C55E);
+  border-color: var(--primary, #22C55E);
 }
 .error {
   padding: 0.6rem 0.75rem;
