@@ -1,0 +1,12 @@
+.list { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
+.item { display: flex; gap: 10px; padding: 8px; border: 1px solid var(--border, #444); border-radius: 4px; cursor: pointer; transition: background 0.15s; }
+.item:hover, .hovered { background: var(--bg-hover, #3a3a3a); }
+.pinned { border-color: var(--accent, #e67e22); background: rgba(230, 126, 34, 0.08); }
+.thumb { width: 60px; height: 60px; flex-shrink: 0; border-radius: 4px; overflow: hidden; background: var(--bg-secondary, #2a2a2a); }
+.thumbImg { width: 100%; height: 100%; object-fit: cover; }
+.thumbPlaceholder { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 10px; color: var(--text-secondary, #666); }
+.info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta { font-size: 11px; color: var(--text-secondary, #888); }
+.detailBtn { align-self: flex-start; padding: 4px 8px; border: 1px solid var(--border, #444); background: transparent; color: var(--text, #eee); border-radius: 3px; cursor: pointer; font-size: 11px; }
+.detailBtn:hover { background: var(--bg-hover, #3a3a3a); }
