@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import DateCalendar from './DateCalendar';
 import { SATELLITE_PANEL_START } from './satelliteDefaults';
 import { resolveDatesLocation } from './datesLocation';
+import { pickBestDate } from './satelliteDate';
 import { RAIL_CATEGORIES } from './satelliteCategories';
 import styles from './SatellitePanel.module.css';
 
@@ -193,7 +194,7 @@ function computeViewtype({ product, sensor, spectral, soilSalinity, pollution, p
 
 const SENSOR_SPECTRAL_ONLY = new Set(['s2dr', 's2']);
 
-export default function SatellitePanel({ open, onViewtypeChange, right, narrow, category, onCategoryChange, getViewCenter }) {
+export default function SatellitePanel({ open, onViewtypeChange, right, narrow, category, onCategoryChange, getViewCenter, compareActive, onToggleCompare, relocateTick = 0 }) {
   const [product, setProduct] = useState('visual');
   const [sensor, setSensor] = useState(right ? 's2rr' : 's2');
   const [spectral, setSpectral] = useState('_ndvi');
@@ -216,19 +217,32 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
   const dateRequestCacheRef = useRef(new Map());
   const activeViewtypeRef = useRef('');
 
-  // Pick the "best" date from a /dates response: the latest date that rounds to
-  // 0% cloud cover (same rounding the calendar pill shows), else the least
-  // cloudy date.
-  const pickBestDate = useCallback((dates) => {
-    const clearDates = dates.filter(d => Math.round(parseFloat(d[1])) <= 0);
-    if (clearDates.length) return clearDates.sort((a, b) => b[0].localeCompare(a[0]))[0][0];
-    const sorted = [...dates].sort((a, b) => parseFloat(a[1]) - parseFloat(b[1]));
-    return sorted.length ? sorted[0][0] : null;
+  // Fetch the best date for a location/viewtype (cached per day/viewtype/
+  // location). Applies it only if the panel hasn't moved on to another
+  // viewtype meanwhile.
+  const resolveDefaultDate = useCallback((center, requestedViewtype) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const effectiveView = requestedViewtype === 'r5m_tci' ? 's2r5m_tci' : requestedViewtype;
+    const cacheKey = `${today}:${effectiveView}:${center.lat.toFixed(4)},${center.lon.toFixed(4)}`;
+    let request = dateRequestCacheRef.current.get(cacheKey);
+
+    if (!request) {
+      const url = `${DATES_API_URL}/${center.lat.toFixed(4)},${center.lon.toFixed(4)}/${effectiveView}/${today}/365/100`;
+      request = fetch(url)
+        .then(r => (r.ok ? r.json() : []))
+        .then(dates => pickBestDate(dates || []))
+        .catch(() => null);
+      dateRequestCacheRef.current.set(cacheKey, request);
+    }
+
+    return request.then(best => {
+      if (best && activeViewtypeRef.current === requestedViewtype) setDate(best);
+    });
   }, []);
 
   // Shared rail category changed → reset this panel's product if it no longer fits
   useEffect(() => {
-    const list = RAIL_CATEGORIES[category].products;
+    const list = (RAIL_CATEGORIES[category] ?? RAIL_CATEGORIES.visual).products;
     if (!list.includes(product)) setProduct(list[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
@@ -242,28 +256,27 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
   // Resolve the default date once per product/day for the panel's fixed opening
   // location. Live map coordinates are intentionally not dependencies, so later
   // panning can neither repeat the lookup nor replace the selected date.
+  // (Search jumps re-resolve via the relocateTick effect below.)
   useEffect(() => {
     if (!open || !viewtype) return;
+    resolveDefaultDate(SATELLITE_PANEL_START, viewtype);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, viewtype]);
+
+  // Search jump while open: after the fly-to animation settles, re-resolve the
+  // default date for the map's new center so imagery matches the location.
+  useEffect(() => {
+    if (!open || !viewtype || !relocateTick) return undefined;
     const requestedViewtype = viewtype;
-    const today = new Date().toISOString().slice(0, 10);
-    const effectiveView = requestedViewtype === 'r5m_tci' ? 's2r5m_tci' : requestedViewtype;
-    const cacheKey = `${today}:${effectiveView}`;
-    let request = dateRequestCacheRef.current.get(cacheKey);
-
-    if (!request) {
-      const { lat, lon } = SATELLITE_PANEL_START;
-      const url = `${DATES_API_URL}/${lat.toFixed(4)},${lon.toFixed(4)}/${effectiveView}/${today}/365/100`;
-      request = fetch(url)
-        .then(r => (r.ok ? r.json() : []))
-        .then(dates => pickBestDate(dates || []))
-        .catch(() => null);
-      dateRequestCacheRef.current.set(cacheKey, request);
-    }
-
-    request.then(best => {
-      if (best && activeViewtypeRef.current === requestedViewtype) setDate(best);
-    });
-  }, [open, viewtype, pickBestDate]);
+    const timer = setTimeout(() => {
+      resolveDefaultDate(
+        resolveDatesLocation(getViewCenter?.(), SATELLITE_PANEL_START),
+        requestedViewtype
+      );
+    }, 700); // flyTo animates ~600ms; read the center after it lands
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relocateTick]);
 
   const showSensor = product === 'visual' || product === 'spectral';
   const showSpectral = product === 'spectral';
@@ -304,7 +317,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
   if (!open) return null;
 
   // Build visible control list
-  const categoryProducts = RAIL_CATEGORIES[category].products;
+  const categoryProducts = (RAIL_CATEGORIES[category] ?? RAIL_CATEGORIES.visual).products;
   const controls = [
     { key: 'product', el: (
       <select key="product" className={styles.select} value={product} onChange={handleProductChange}>
@@ -374,6 +387,21 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
           <line x1="16" y1="2" x2="16" y2="6"/>
           <line x1="8" y1="2" x2="8" y2="6"/>
           <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </button>
+    )}] : []),
+    ...(onToggleCompare ? [{ key: 'compare', el: (
+      <button
+        key="compare"
+        type="button"
+        className={`${styles.modeBtn} ${compareActive ? styles.modeActive : ''}`}
+        onClick={() => onToggleCompare?.()}
+        title={compareActive ? 'Exit compare' : 'Compare maps'}
+        aria-pressed={!!compareActive}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="18" rx="1" />
+          <rect x="14" y="3" width="7" height="18" rx="1" />
         </svg>
       </button>
     )}] : []),

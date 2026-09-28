@@ -1,46 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
 import { MAX_MAPS, canAddMap } from './mapCount';
+import { BASEMAP_NAMES, BASEMAP_IDS, createBasemapSource } from './basemaps';
 import styles from './MapView.module.css';
-
-const BASEMAP_NAMES = {
-  osm: 'OSM', satellite: 'Esri', terrain: 'Terrain',
-  light: 'CARTO', streets: 'Streets', dark: 'Dark', sentinel: 'Sentinel',
-};
-const BASEMAP_IDS = Object.keys(BASEMAP_NAMES);
-
-function createSource(id) {
-  const ol = window.ol;
-  const map = {
-    osm: () => new ol.source.OSM(),
-    satellite: () => new ol.source.XYZ({
-      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      maxZoom: 19, attributions: '&copy; Esri',
-    }),
-    terrain: () => new ol.source.XYZ({
-      url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
-      maxZoom: 17, attributions: '&copy; OpenTopoMap',
-    }),
-    light: () => new ol.source.XYZ({
-      url: 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      maxZoom: 19, attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
-    }),
-    streets: () => new ol.source.XYZ({
-      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-      maxZoom: 19, attributions: '&copy; Esri',
-    }),
-    dark: () => new ol.source.XYZ({
-      url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      maxZoom: 19, attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
-    }),
-    sentinel: () => new ol.source.XYZ({
-      url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg',
-      maxZoom: 14,
-      attributions: 'Sentinel-2 cloudless - <a href="https://s2maps.eu">EOX</a> (Contains modified Copernicus Sentinel data)',
-    }),
-  };
-  return (map[id] || map.osm)();
-}
 
 function nextBasemap(current) {
   return BASEMAP_IDS[(BASEMAP_IDS.indexOf(current) + 1) % BASEMAP_IDS.length];
@@ -52,7 +14,7 @@ function swapLayer(mapInstance, oldLayer, newId, label, onSwapped) {
   if (!ol || !mapInstance) return oldLayer;
 
   const newLayer = new ol.layer.Tile({
-    source: createSource(newId),
+    source: createBasemapSource(ol, newId),
     properties: {
       inspectorName: `${label}: ${BASEMAP_NAMES[newId]}`,
       inspectorCategory: 'Compare basemap',
@@ -120,8 +82,7 @@ export default function MapCompare({
     const pos = Math.max(0, extraIdsRef.current.indexOf(id));
     const anchor = activeBasemap || 'osm';
     return BASEMAP_IDS[(BASEMAP_IDS.indexOf(anchor) + pos + 1) % BASEMAP_IDS.length];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeBasemap]);
 
   const baseFor = useCallback((id) => basesById[id] || defaultBaseFor(id), [basesById, defaultBaseFor]);
 
@@ -136,7 +97,7 @@ export default function MapCompare({
     }
     // Create initial left layer (at bottom so satellite overlays stay visible)
     const ll = new ol.layer.Tile({
-      source: createSource(leftBase),
+      source: createBasemapSource(ol, leftBase),
       properties: {
         inspectorName: `Compare left: ${BASEMAP_NAMES[leftBase]}`,
         inspectorCategory: 'Compare basemap',
@@ -198,7 +159,7 @@ export default function MapCompare({
         projection: mainView.getProjection(),
       });
       const rl = new ol.layer.Tile({
-        source: createSource(base),
+        source: createBasemapSource(ol, base),
         properties: {
           inspectorName: `Compare ${id}: ${BASEMAP_NAMES[base]}`,
           inspectorCategory: 'Compare basemap',
@@ -261,7 +222,7 @@ export default function MapCompare({
       syncCleanup.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extraIds.length, hasExtras]);
+  }, [extraIds, hasExtras]);
 
   // ── Unmount: destroy all extra maps ───────────────────────────────────
   useEffect(() => () => {

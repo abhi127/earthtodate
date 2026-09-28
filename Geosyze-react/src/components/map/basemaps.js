@@ -10,3 +10,43 @@ export const BASEMAP_DEFS = [
   { id: 'dark',      name: 'Dark',    thumbnail: 'https://a.basemaps.cartocdn.com/dark_all/3/4/2.png' },
   { id: 'sentinel',  name: 'Sentinel', thumbnail: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/3/4/2.jpg' },
 ];
+
+const BASEMAP_NAMES = {
+  osm: 'OSM', satellite: 'Esri', terrain: 'Terrain',
+  light: 'CARTO', streets: 'Streets', dark: 'Dark', sentinel: 'Sentinel',
+};
+const BASEMAP_IDS = Object.keys(BASEMAP_NAMES);
+
+function createBasemapSource(ol, id) {
+  const map = {
+    osm: () => new ol.source.OSM(),
+    satellite: () => new ol.source.XYZ({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      maxZoom: 19, attributions: '&copy; Esri',
+    }),
+    terrain: () => new ol.source.XYZ({
+      url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
+      maxZoom: 17, attributions: '&copy; OpenTopoMap',
+    }),
+    light: () => new ol.source.XYZ({
+      url: 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      maxZoom: 19, attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
+    }),
+    streets: () => new ol.source.XYZ({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      maxZoom: 19, attributions: '&copy; Esri',
+    }),
+    dark: () => new ol.source.XYZ({
+      url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      maxZoom: 19, attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
+    }),
+    sentinel: () => new ol.source.XYZ({
+      url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg',
+      maxZoom: 14,
+      attributions: 'Sentinel-2 cloudless - <a href="https://s2maps.eu">EOX</a> (Contains modified Copernicus Sentinel data)',
+    }),
+  };
+  return (map[id] || map.osm)();
+}
+
+export { BASEMAP_NAMES, BASEMAP_IDS, createBasemapSource };

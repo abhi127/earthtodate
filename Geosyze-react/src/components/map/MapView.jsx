@@ -1,5 +1,4 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef, useState, useCallback } from 'react';
-import JSZip from 'jszip';
 import MapOverlay from './MapOverlay';
 import MeasureTool from './MeasureTool';
 import MapControls from './MapControls';
@@ -9,122 +8,20 @@ import SatellitePanel from './SatellitePanel';
 import SatelliteLegend from './SatelliteLegend';
 import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
 import { SATELLITE_PANEL_START, SATELLITE_OPEN_RESOLUTION } from './satelliteDefaults';
+import { SATELLITE_MIN_ZOOM, SATELLITE_MAX_ZOOM, isSatelliteAllowed, disposeRequestContext, resolveR5mViewtype } from './satelliteLayers';
 import { resolveLayout } from './mapCount';
 import {Tile} from 'ol/layer'
+import { BASEMAP_IDS, BASEMAP_NAMES, createBasemapSource } from './basemaps';
 import styles from './MapView.module.css';
 
-// ponytail: coalesced satellite tile loader. Pan/zoom bursts ask OL to fetch many
-// tiles at once; we hold them back (debounced) until the map has been still for
-// STILL_DELAY ms, then flush at MAX_CONCURRENT_TILES fetches at a time. Debounce
-// prevents firing a flood of requests mid-gesture; the concurrency cap bounds the
-// post-still burst. Each tile is loaded into its own image exactly as OL's
-// documented custom tileLoadFunction expects (no clobbering of OL's load/error
-// listeners), so removed layers clean up instead of leaving a ghost layer.
-const MAX_CONCURRENT_TILES = 6;
-const STILL_DELAY = 300;
+import { createTileLoader, satelliteTileLoadFunction as satLoadFn } from './satelliteTileLoader';
+import { downloadBlob, exportShapefile, featuresToExportContent } from './mapExport';
 // Satellite products are unavailable below z12. The source tile grid alone does
 // not enforce that floor: OpenLayers clamps the selected tile zoom to minZoom,
 // so a z9.9 view would otherwise keep requesting z12 tiles.
-const SATELLITE_MIN_ZOOM = 12;
-const SATELLITE_MAX_ZOOM = 21;
-let satActive = 0;
-let satStill = false;
-let satTimer = null;
-const satQueue = [];
-
-// Reset/arm the "still" window: every new tile request pushes the quiet start
-// out by STILL_DELAY, so nothing fetches until the map stops moving.
-function satArm() {
-  satStill = false;
-  clearTimeout(satTimer);
-  satTimer = setTimeout(() => {
-    satStill = true;
-    satTick();
-  }, STILL_DELAY);
-}
-
-// Start queued fetches — only when the map is still AND a slot is free.
-function satTick() {
-  while (satStill && satActive < MAX_CONCURRENT_TILES && satQueue.length) {
-    const run = satQueue.shift();
-    satActive++;
-    run();
-  }
-}
-
-function satWait() {
-  satArm();
-  return new Promise((resolve) => {
-    satQueue.push(resolve);
-    satTick();
-  });
-}
-function satRelease() {
-  satActive--;
-  satTick();
-}
-
-// Tiles that failed (no imagery / upstream error). OL re-requests the same
-// tile whenever it becomes visible again (pan, zoom, layer churn), so remember
-// failures and short-circuit to a transparent tile instead of re-hitting the
-// network each time.
-const tileFailCache = new Set();
-// A real 1×1 RGBA pixel with alpha 0. The previous value was half-green and
-// OpenLayers scaled it across the whole tile during loading/abort transitions.
-const TRANSPARENT_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
-
-function abortError() {
-  const error = new Error('Satellite tile request superseded');
-  error.name = 'AbortError';
-  return error;
-}
-
+const __satLoader = createTileLoader({ maxConcurrent: 6, stillDelay: 300 });
 function satelliteTileLoadFunction(tile, src, requestContext) {
-  const image = tile.getImage();
-
-  if (tileFailCache.has(src)) {
-    image.src = TRANSPARENT_TILE;
-    return;
-  }
-
-  satWait()
-    .then(() => {
-      // The layer may have been removed, replaced, or zoomed below its product
-      // floor while this tile waited in the debounce queue. Do not turn that
-      // stale queue entry into a server request.
-      if (!requestContext.active) throw abortError();
-
-      const controller = new AbortController();
-      requestContext.controllers.add(controller);
-      return fetch(src, { signal: controller.signal })
-        .then((res) => {
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res.blob();
-        })
-        .then((blob) => {
-          if (!requestContext.active) throw abortError();
-          const url = URL.createObjectURL(blob);
-          // OpenLayers attaches its own load/error listeners (addEventListener)
-          // before this resolves, so only set img.src and let it finalize the tile.
-          image.src = url;
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
-        })
-        .finally(() => requestContext.controllers.delete(controller));
-    })
-    .catch((err) => {
-      // Fire OpenLayers' image error listener (via addEventListener) so the
-      // tile finals as ERROR instead of hanging in LOADING; hanging LOADING
-      // tiles are what leave a stale/ghost layer behind. Aborted/stale tiles
-      // belong to a source that has already been removed, so finalize them as
-      // transparent without recording a server failure.
-      if (err?.name === 'AbortError') {
-        image.src = TRANSPARENT_TILE;
-      } else {
-        tileFailCache.add(src);
-        image.dispatchEvent(new Event('error'));
-      }
-    })
-    .finally(satRelease);
+  return satLoadFn(tile, src, requestContext, __satLoader);
 }
 
 const MapView = forwardRef(function MapView({
@@ -137,6 +34,7 @@ const MapView = forwardRef(function MapView({
   satellitePanelOpen,
   setSatellitePanelOpen,
   extraSatOpen,
+  searchTick = 0,
   onBasemapChange,
   satCategory,
   onSatCategoryChange
@@ -180,70 +78,11 @@ const MapView = forwardRef(function MapView({
     vectorSource.current = new ol.source.Vector();
     const vectorLayer = new ol.layer.Vector({ source: vectorSource.current });
 
-    const layers = {
-      osm: new ol.layer.Tile({ source: new ol.source.OSM(), visible: true }),
-      satellite: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-          maxZoom: 19,
-          attributions: '&copy; Esri',
-        }),
-        visible: false,
-      }),
-      terrain: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
-          maxZoom: 17,
-          attributions: '&copy; OpenTopoMap',
-        }),
-        visible: false,
-      }),
-      light: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-          maxZoom: 19,
-          attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
-        }),
-        visible: false,
-      }),
-      streets: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-          maxZoom: 19,
-          attributions: '&copy; Esri',
-        }),
-        visible: false,
-      }),
-      dark: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-          maxZoom: 19,
-          attributions: '&copy; <a href="https://carto.com/">CARTO</a>',
-        }),
-        visible: false,
-      }),
-      sentinel: new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg',
-          maxZoom: 14,
-          attributions: 'Sentinel-2 cloudless - <a href="https://s2maps.eu">EOX</a> (Contains modified Copernicus Sentinel data)',
-        }),
-        visible: false,
-      }),
-    };
+    const layers = Object.fromEntries(BASEMAP_IDS.map((id) => [id, new ol.layer.Tile({ source: createBasemapSource(ol, id), visible: id === 'osm' })]));
     basemapRefs.current = layers;
 
-    const basemapNames = {
-      osm: 'OSM',
-      satellite: 'Esri',
-      terrain: 'Terrain',
-      light: 'CARTO',
-      streets: 'Streets',
-      dark: 'Dark',
-      sentinel: 'Sentinel',
-    };
     Object.entries(layers).forEach(([id, layer]) => {
-      layer.set('inspectorName', `Basemap: ${basemapNames[id]}`);
+      layer.set('inspectorName', `Basemap: ${BASEMAP_NAMES[id]}`);
       layer.set('inspectorCategory', 'Basemap');
       layer.set('basemapId', id);
     });
@@ -320,202 +159,6 @@ const MapView = forwardRef(function MapView({
     setPillExportOpen(false);
   }, []);
 
-  // ── download helper ─────────────────────────────────────────────────
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  // ── CSV export helper ────────────────────────────────────────────────
-  function featuresToCSV(features, ol) {
-    const rows = [['WKT', 'ID']];
-    features.forEach((f, i) => {
-      const wkt = new ol.format.WKT().writeFeature(f, { featureProjection: 'EPSG:3857' });
-      // Escape WKT if it contains commas or quotes
-      const escaped = wkt.includes(',') || wkt.includes('"') ? `"${wkt.replace(/"/g, '""')}"` : wkt;
-      rows.push([escaped, `${i + 1}`]);
-    });
-    return rows.map(r => r.join(',')).join('\n');
-  }
-
-  // ── shapefile binary writer ─────────────────────────────────────────
-  // ponytail: minimal writer for Point / LineString / Polygon in EPSG:4326
-  function writeShpHeader(dataView, fileLength, shapeType, bounds) {
-    const dv = dataView;
-    dv.setInt32(0, 9994, false);            // file code (big-endian)
-    // bytes 4-23: 5 unused int32s
-    for (let i = 4; i < 24; i += 4) dv.setInt32(i, 0, false);
-    dv.setInt32(24, fileLength, false);     // file length in 16-bit words (big-endian)
-    dv.setInt32(28, 1000, true);            // version (little-endian)
-    dv.setInt32(32, shapeType, true);       // shape type (little-endian)
-    dv.setFloat64(36, bounds.xMin, true);   // Xmin
-    dv.setFloat64(44, bounds.yMin, true);   // Ymin
-    dv.setFloat64(52, bounds.xMax, true);   // Xmax
-    dv.setFloat64(60, bounds.yMax, true);   // Ymax
-    dv.setFloat64(68, 0, true);             // Zmin
-    dv.setFloat64(76, 0, true);             // Zmax
-    dv.setFloat64(84, 0, true);             // Mmin
-    dv.setFloat64(92, 0, true);             // Mmax
-  }
-
-  function shpContentLength(geom) {
-    const type = geom.getType();
-    if (type === 'Point') return 20;        // shapeType(4) + X(8) + Y(8) = 20 bytes
-    const coords = geom.getCoordinates();
-    const n = type === 'Polygon' ? coords[0].length : coords.length;
-    if (type === 'LineString') return 4 + 32 + 4 + 4 + 4 + n * 16;  // type+box+1part+1part+npoints+npts*16
-    if (type === 'Polygon') return 4 + 32 + 4 + 4 + 4 + n * 16;
-    return 0;
-  }
-
-  function writeShpRecord(dv, offset, geom) {
-    const type = geom.getType();
-    const coords4326 = geom.clone().transform('EPSG:3857', 'EPSG:4326').getCoordinates();
-    let pos = offset;
-
-    if (type === 'Point') {
-      dv.setInt32(pos, 1, true); pos += 4;  // shapeType Point
-      dv.setFloat64(pos, coords4326[0], true); pos += 8;
-      dv.setFloat64(pos, coords4326[1], true); pos += 8;
-    } else if (type === 'LineString') {
-      const pts = coords4326;
-      const n = pts.length;
-      // box
-      let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
-      for (const p of pts) { xMin = Math.min(xMin, p[0]); yMin = Math.min(yMin, p[1]); xMax = Math.max(xMax, p[0]); yMax = Math.max(yMax, p[1]); }
-      dv.setInt32(pos, 3, true); pos += 4;  // shapeType PolyLine
-      dv.setFloat64(pos, xMin, true); pos += 8;
-      dv.setFloat64(pos, yMin, true); pos += 8;
-      dv.setFloat64(pos, xMax, true); pos += 8;
-      dv.setFloat64(pos, yMax, true); pos += 8;
-      dv.setInt32(pos, 1, true); pos += 4;  // numParts
-      dv.setInt32(pos, n, true); pos += 4;  // numPoints
-      dv.setInt32(pos, 0, true); pos += 4;  // parts[0]
-      for (const p of pts) { dv.setFloat64(pos, p[0], true); pos += 8; dv.setFloat64(pos, p[1], true); pos += 8; }
-    } else if (type === 'Polygon') {
-      const ring = coords4326[0];             // exterior ring
-      const n = ring.length;
-      let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
-      for (const p of ring) { xMin = Math.min(xMin, p[0]); yMin = Math.min(yMin, p[1]); xMax = Math.max(xMax, p[0]); yMax = Math.max(yMax, p[1]); }
-      dv.setInt32(pos, 5, true); pos += 4;  // shapeType Polygon
-      dv.setFloat64(pos, xMin, true); pos += 8;
-      dv.setFloat64(pos, yMin, true); pos += 8;
-      dv.setFloat64(pos, xMax, true); pos += 8;
-      dv.setFloat64(pos, yMax, true); pos += 8;
-      dv.setInt32(pos, 1, true); pos += 4;  // numParts
-      dv.setInt32(pos, n, true); pos += 4;  // numPoints
-      dv.setInt32(pos, 0, true); pos += 4;  // parts[0]
-      for (const p of ring) { dv.setFloat64(pos, p[0], true); pos += 8; dv.setFloat64(pos, p[1], true); pos += 8; }
-    }
-    return pos;
-  }
-
-  async function exportShapefile(features) {
-    const ol = window.ol;
-    if (!ol || !features.length) return;
-
-    const zip = new JSZip();
-    const geoms = features.map(f => f.getGeometry());
-
-    // Compute bounds across all features
-    const allBounds = { xMin: Infinity, yMin: Infinity, xMax: -Infinity, yMax: -Infinity };
-    for (const g of geoms) {
-      const cloned = g.clone().transform('EPSG:3857', 'EPSG:4326');
-      const ext = cloned.getExtent();
-      allBounds.xMin = Math.min(allBounds.xMin, ext[0]);
-      allBounds.yMin = Math.min(allBounds.yMin, ext[1]);
-      allBounds.xMax = Math.max(allBounds.xMax, ext[2]);
-      allBounds.yMax = Math.max(allBounds.yMax, ext[3]);
-    }
-
-    // Determine shape type from first feature
-    const firstType = geoms[0].getType();
-    let shapeType;
-    if (firstType === 'Point') shapeType = 1;
-    else if (firstType === 'LineString') shapeType = 3;
-    else shapeType = 5; // Polygon
-
-    // Compute file sizes
-    let shpContentSize = 0;
-    const contentLengths = [];
-    for (const g of geoms) {
-      const cl = shpContentLength(g);
-      contentLengths.push(cl);
-      shpContentSize += 8 + cl; // 8 byte record header + content
-    }
-    const shpFileLengthWords = Math.ceil((100 + shpContentSize) / 2);
-
-    // Write .shp
-    const shpBuf = new ArrayBuffer(100 + shpContentSize);
-    const shpDv = new DataView(shpBuf);
-    writeShpHeader(shpDv, shpFileLengthWords, shapeType, allBounds);
-    let offset = 100;
-    for (let i = 0; i < geoms.length; i++) {
-      const cl = contentLengths[i];
-      shpDv.setInt32(offset, i + 1, false); offset += 4;  // record number (big-endian)
-      shpDv.setInt32(offset, cl / 2, false); offset += 4; // content length in words (big-endian)
-      offset = writeShpRecord(shpDv, offset, geoms[i]);
-    }
-    zip.file('export.shp', shpBuf);
-
-    // Write .shx
-    const shxHeaderSize = 100;
-    const shxRecordSize = 8; // offset(4) + contentLength(4)
-    const shxTotalSize = shxHeaderSize + geoms.length * shxRecordSize;
-    const shxFileLengthWords = shxTotalSize / 2;
-    const shxBuf = new ArrayBuffer(shxTotalSize);
-    const shxDv = new DataView(shxBuf);
-    writeShpHeader(shxDv, shxFileLengthWords, shapeType, allBounds);
-    let recOffset = 50; // 100 bytes / 2 = 50 words
-    for (let i = 0; i < geoms.length; i++) {
-      shxDv.setInt32(100 + i * 8, recOffset, false);       // offset in words (big-endian)
-      shxDv.setInt32(100 + i * 8 + 4, contentLengths[i] / 2, false); // content length in words (big-endian)
-      recOffset += (8 + contentLengths[i]) / 2;             // 8 byte record header + content
-    }
-    zip.file('export.shx', shxBuf);
-
-    // Write .dbf (minimal: FID field only)
-    const numFields = 1;
-    const headerLen = 32 + numFields * 32 + 1;
-    const recLen = 1 + 10; // deletion marker + 10 char FID
-    const dbfBuf = new ArrayBuffer(headerLen + features.length * recLen);
-    const dbfDv = new DataView(dbfBuf);
-    dbfDv.setUint8(0, 3);                      // dBASE III no memo
-    dbfDv.setUint8(1, 25); dbfDv.setUint8(2, 7); dbfDv.setUint8(3, 20); // date
-    dbfDv.setUint32(4, features.length, true); // number of records
-    dbfDv.setUint16(8, headerLen, true);       // header length
-    dbfDv.setUint16(10, recLen, true);         // record length
-    // Field descriptor: FID (N, 10, 0)
-    const enc = new TextEncoder();
-    const fname = new Uint8Array(11); enc.encodeInto('FID', fname);
-    for (let i = 0; i < 11; i++) dbfDv.setUint8(32 + i, fname[i]);
-    dbfDv.setUint8(32 + 11, 78);               // 'N' = numeric
-    dbfDv.setUint32(32 + 12, 0, true);         // field address
-    dbfDv.setUint8(32 + 16, 10);               // field length
-    dbfDv.setUint8(32 + 17, 0);                // decimal count
-    dbfDv.setUint8(headerLen - 1, 0x0D);        // field terminator
-    // Records
-    for (let i = 0; i < features.length; i++) {
-      const recOff = headerLen + i * recLen;
-      dbfDv.setUint8(recOff, 0x20);            // not deleted
-      const fidStr = `${i + 1}`.padStart(10, ' ').slice(0, 10);
-      for (let j = 0; j < 10; j++) dbfDv.setUint8(recOff + 1 + j, fidStr.charCodeAt(j));
-    }
-    zip.file('export.dbf', dbfBuf);
-
-    // Write .prj
-    zip.file('export.prj', `GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4326"]]`);
-
-    const blob = await zip.generateAsync({ type: 'blob' });
-    downloadBlob(blob, 'export-shapefile.zip');
-  }
-
   // ── main export dispatcher ──────────────────────────────────────────
   const exportFeatures = useCallback((format) => {
     const ol = window.ol;
@@ -523,35 +166,13 @@ const MapView = forwardRef(function MapView({
     const features = vectorSource.current.getFeatures();
     if (!features.length) return;
 
-    let content, filename, mimeType;
-    switch (format) {
-      case 'geojson':
-        content = new ol.format.GeoJSON().writeFeatures(features, { featureProjection: 'EPSG:3857' });
-        filename = 'export.geojson'; mimeType = 'application/geo+json';
-        break;
-      case 'kml':
-        content = new ol.format.KML().writeFeatures(features, { featureProjection: 'EPSG:3857' });
-        filename = 'export.kml'; mimeType = 'application/vnd.google-earth.kml+xml';
-        break;
-      case 'gpx':
-        content = new ol.format.GPX().writeFeatures(features, { featureProjection: 'EPSG:3857' });
-        filename = 'export.gpx'; mimeType = 'application/gpx+xml';
-        break;
-      case 'wkt':
-        content = features.map(f => new ol.format.WKT().writeFeature(f, { featureProjection: 'EPSG:3857' })).join('\n');
-        filename = 'export.wkt'; mimeType = 'text/plain';
-        break;
-      case 'csv':
-        content = featuresToCSV(features, ol);
-        filename = 'export.csv'; mimeType = 'text/csv';
-        break;
-      case 'shapefile':
-        exportShapefile(features);
-        return; // async, handles its own download
-      default:
-        return;
+    if (format === 'shapefile') {
+      exportShapefile(features);
+      return; // async, handles its own download
     }
-    downloadBlob(new Blob([content], { type: mimeType }), filename);
+    const result = featuresToExportContent(features, ol, format);
+    if (!result) return;
+    downloadBlob(new Blob([result.content], { type: result.mimeType }), result.filename);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useImperativeHandle(ref, () => ({
@@ -596,29 +217,6 @@ const MapView = forwardRef(function MapView({
   // For r5m_tci ("5m Combined"): resolve to actual source (s2r5m_tci or ls5_tci)
   const r5mActualRef = useRef(null);
 
-  async function resolveR5mViewtype(viewtype, date, r5mRef) {
-    if (viewtype !== 'r5m_tci') return viewtype;
-    const { lat, lon } = SATELLITE_PANEL_START;
-    const location = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    try {
-      const [s2Resp, lsResp] = await Promise.all([
-        fetch(`/api/tiles/dates/${location}/s2r5m_tci/${date}/365/100`).then(r => r.json()).catch(() => []),
-        fetch(`/api/tiles/dates/${location}/ls5_tci/${date}/365/100`).then(r => r.json()).catch(() => [])
-      ]);
-      // Merge: same date, pick lower clouds
-      const merged = {};
-      (s2Resp || []).forEach(d => { merged[d[0]] = { date: d[0], source: 's2r5m_tci', clouds: parseFloat(d[1]) }; });
-      (lsResp || []).forEach(d => {
-        if (!merged[d[0]] || parseFloat(d[1]) < merged[d[0]].clouds)
-          merged[d[0]] = { date: d[0], source: 'ls5_tci', clouds: parseFloat(d[1]) };
-      });
-      const sorted = Object.values(merged).sort((a, b) => b.date.localeCompare(a.date));
-      if (sorted.length > 0) { r5mRef.current = sorted[0].source; return sorted[0].source; }
-    } catch (e) { /* fallback */ }
-    r5mRef.current = 's2r5m_tci';
-    return 's2r5m_tci';
-  }
-
   function createSatelliteSource(viewtype, date, months, requestContext) {
     const ol = window.ol;
     if (!ol) return null;
@@ -637,15 +235,6 @@ const MapView = forwardRef(function MapView({
       tileLoadFunction: (tile, src) => satelliteTileLoadFunction(tile, src, requestContext),
       attributions: '&copy; Earth to Date',
     });
-  }
-
-  function disposeRequestContext(contextRef) {
-    const context = contextRef?.current;
-    if (!context) return;
-    context.active = false;
-    context.controllers.forEach(controller => controller.abort());
-    context.controllers.clear();
-    contextRef.current = null;
   }
 
   function satRefsFor(key) {
@@ -704,7 +293,7 @@ const MapView = forwardRef(function MapView({
     const ol = window.ol;
     if (!mapInstance || !ol) return;
     removeSatelliteLayer(mapInstance, ref, contextRef);
-    if (!viewtype || (mapInstance.getView().getZoom() ?? 0) < SATELLITE_MIN_ZOOM) return;
+    if (!viewtype || !isSatelliteAllowed(mapInstance.getView().getZoom())) return;
 
     const requestContext = { active: true, controllers: new Set() };
     const source = createSatelliteSource(viewtype, date, months, requestContext);
@@ -777,9 +366,11 @@ const MapView = forwardRef(function MapView({
 
   // Stable per-map callbacks (SatellitePanel notifies on every change, so
   // identity must not churn or panels re-notify in a loop).
+  const handleExtraRef = useRef(null);
+  handleExtraRef.current = handleExtraSatelliteViewtype;
   function extraHandlerFor(id) {
     if (!extraSatHandlers.current.has(id)) {
-      extraSatHandlers.current.set(id, (v) => handleExtraSatelliteViewtype(id, v));
+      extraSatHandlers.current.set(id, (v) => handleExtraRef.current(id, v));
     }
     return extraSatHandlers.current.get(id);
   }
@@ -799,9 +390,10 @@ const MapView = forwardRef(function MapView({
       category={satCategory}
       onCategoryChange={onSatCategoryChange}
       getViewCenter={() => getExtraViewCenter(id)}
+      relocateTick={searchTick}
     />
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [extraSatOpen, satCategory, extraMapsTick, mapCount]);
+  ), [extraSatOpen, satCategory, extraMapsTick, mapCount, searchTick]);
 
   const renderExtraLegend = useCallback((id) => {
     if (!extraSatOpen?.[id]) return null;
@@ -879,7 +471,7 @@ const MapView = forwardRef(function MapView({
     const layerForKey = (key) => (key === 'main' ? satelliteLayerRef.current : (extraSatLayers.current.get(key) ?? null));
 
     const syncLayerZoom = () => {
-      const allowed = (view.getZoom() ?? 0) >= SATELLITE_MIN_ZOOM;
+      const allowed = isSatelliteAllowed(view.getZoom());
       const keys = ['main', ...(extraIds ?? [])];
       if (!allowed) {
         for (const key of keys) removeSatelliteLayerFor(key);
@@ -928,6 +520,10 @@ const MapView = forwardRef(function MapView({
   }, [hasExtras, layoutMode, mapCount]);
 
   const layout = resolveLayout(mapCount, layoutMode);
+  const handleCompareToggle = useCallback(() => {
+    if (hasExtras) onRemoveAllExtras?.();
+    else onAddMap?.();
+  }, [hasExtras, onAddMap, onRemoveAllExtras]);
   let containerClass = styles.container;
   if (layout === 'compare') containerClass += ` ${styles.compareActive}`;
   else if (layout === 'swipe') containerClass += ` ${styles.compareActive} ${styles.compareSwipeMode}`;
@@ -944,6 +540,9 @@ const MapView = forwardRef(function MapView({
           category={satCategory}
           onCategoryChange={onSatCategoryChange}
           getViewCenter={getMainViewCenter}
+          compareActive={hasExtras}
+          onToggleCompare={handleCompareToggle}
+          relocateTick={searchTick}
         />
         {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
       </div>
