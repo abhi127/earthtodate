@@ -1,5 +1,12 @@
 import styles from './MgpProResultsList.module.css';
 
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export default function MgpProResultsList({ results, hoveredId, pinnedIds, onHover, onTogglePin, onOpenDetail }) {
   return (
     <div className={styles.list}>
@@ -24,7 +31,7 @@ export default function MgpProResultsList({ results, hoveredId, pinnedIds, onHov
             </div>
             <div className={styles.info}>
               <span className={styles.title} title={r.title}>{r.title}</span>
-              <span className={styles.date}>{r.acquisitionDate?.split('T')[0] || '—'} · {r.sensor || '—'}</span>
+              <span className={styles.date}>{formatDate(r.acquisitionDate)} · {r.sensor || '—'}</span>
               <div className={styles.metaGrid}>
                 <span className={styles.meta} title="Cloud cover">☁ <strong>{r.cloudCover != null ? `${r.cloudCover.toFixed(1)}%` : '—'}</strong></span>
                 <span className={styles.meta} title="Resolution">◈ <strong>{r.resolution != null ? `${r.resolution.toFixed(2)}m` : '—'}</strong></span>
