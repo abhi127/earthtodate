@@ -28,7 +28,10 @@ export class TilesController {
       res.set({ 'Content-Type': result.contentType, 'Cache-Control': 'public, max-age=86400' });
       res.send(result.body);
     } catch (e: any) {
-      this.logger.error(`${e.message}`);
+      // Include the underlying cause (e.g. ConnectTimeoutError): bare
+      // "fetch failed" hides whether upstream is slow, down, or refusing us.
+      const cause = e.cause ? ` | cause: ${e.cause.message || e.cause}` : '';
+      this.logger.error(`${e.message}${cause}`);
       res.status(502).json({ error: 'Tile server upstream error', detail: e.message });
     }
   }
