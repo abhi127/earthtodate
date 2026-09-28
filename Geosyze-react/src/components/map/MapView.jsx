@@ -667,6 +667,7 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
   const layerRef = useRef(null);
   const sourceRef = useRef(null);
   const labelRef = useRef(null);
+  const labelDivRef = useRef(null);
 
   useEffect(() => {
     const ol = window.ol;
@@ -790,6 +791,26 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
     };
   }, [map, onHover, onTogglePin]);
 
+  // Zoom below which the footprint label is hidden entirely, and the
+  // zoom at/above which it renders at full size. In between, font size
+  // interpolates so the label shrinks as you zoom out.
+  const LABEL_HIDE_ZOOM = 8;
+  const LABEL_FULL_ZOOM = 13;
+  const LABEL_MIN_PX = 9;
+  const LABEL_MAX_PX = 12;
+
+  function applyLabelScale(zoom) {
+    const div = labelDivRef.current;
+    if (!div) return;
+    if (zoom == null || zoom < LABEL_HIDE_ZOOM) {
+      div.style.display = 'none';
+      return;
+    }
+    div.style.display = '';
+    const t = Math.min(1, Math.max(0, (zoom - LABEL_HIDE_ZOOM) / (LABEL_FULL_ZOOM - LABEL_HIDE_ZOOM)));
+    div.style.fontSize = `${(LABEL_MIN_PX + t * (LABEL_MAX_PX - LABEL_MIN_PX)).toFixed(1)}px`;
+  }
+
   useEffect(() => {
     const ol = window.ol;
     if (!ol || !map) return;
@@ -798,6 +819,7 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
       map.removeOverlay(labelRef.current);
       labelRef.current = null;
     }
+    if (labelDivRef.current) labelDivRef.current = null;
 
     const activeId = hoveredId || pinnedIds[pinnedIds.length - 1];
     if (!activeId) return;
@@ -807,13 +829,26 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
 
     const centroid = ol.extent.getCenter(feature.getGeometry().getExtent());
     const div = document.createElement('div');
-    div.style.cssText = 'background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;pointer-events:none;';
+    div.style.cssText = 'background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:3px;pointer-events:none;white-space:nowrap;';
     div.textContent = feature.get('title') || activeId;
+    labelDivRef.current = div;
 
     const overlay = new ol.Overlay({ position: centroid, element: div, positioning: 'bottom-center' });
     map.addOverlay(overlay);
     labelRef.current = overlay;
+    applyLabelScale(map.getView().getZoom());
   }, [map, hoveredId, pinnedIds]);
+
+  // Keep the label sized to the current zoom; hide it when zoomed far out.
+  useEffect(() => {
+    if (!map) return;
+    const view = map.getView();
+    const onChange = () => applyLabelScale(view.getZoom());
+    view.on('change:resolution', onChange);
+    onChange();
+    return () => view.un('change:resolution', onChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]);
 
   return null;
 }
