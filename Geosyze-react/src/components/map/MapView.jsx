@@ -844,8 +844,13 @@ function ArchivalPreviewLayer({ map, results, previewIds }) {
         const proxyUrl = `/api/vendors/mgp-pro/browse?url=${encodeURIComponent(result.previewUrl)}`;
         // Note: GeoTIFF is a DataTile source — it requires the WebGLTile
         // layer renderer (Canvas tile/image renderers cannot draw raw
-        // array tile data).
-        const source = new ol.source.GeoTIFF({ sources: [{ url: proxyUrl }] });
+        // array tile data). MGP browse images are JPEG-compressed YCbCr,
+        // so convertToRGB is needed to display true colors instead of
+        // raw Y/Cb/Cr mapped to R/G/B (red cast).
+        const source = new ol.source.GeoTIFF({
+          sources: [{ url: proxyUrl }],
+          convertToRGB: true,
+        });
         const layer = new ol.layer.WebGLTile({ source, opacity: 1 });
         layer.set('inspectorName', `Preview: ${result.title}`);
         layer.set('inspectorCategory', 'Archival');
