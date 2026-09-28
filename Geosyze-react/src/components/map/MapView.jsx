@@ -41,10 +41,10 @@ const MapView = forwardRef(function MapView({
   archivalResults = [],
   hoveredResultId = null,
   pinnedResultIds = [],
-  hiddenFootprintIds = [],
-  footprintsVisible = true,
+  previewResultIds = [],
   onArchivalHover,
   onArchivalTogglePin,
+  onArchivalTogglePreview,
 }, ref) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
@@ -621,10 +621,16 @@ const MapView = forwardRef(function MapView({
           results={archivalResults}
           hoveredId={hoveredResultId}
           pinnedIds={pinnedResultIds}
-          hiddenIds={hiddenFootprintIds}
-          layerVisible={footprintsVisible}
           onHover={onArchivalHover}
           onTogglePin={onArchivalTogglePin}
+        />
+      )}
+
+      {mapReady && (
+        <ArchivalPreviewLayer
+          map={mapInstance.current}
+          results={archivalResults}
+          previewIds={previewResultIds}
         />
       )}
 
@@ -657,14 +663,10 @@ const MapView = forwardRef(function MapView({
   );
 });
 
-function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, hiddenIds = [], layerVisible = true, onHover, onTogglePin }) {
+function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onTogglePin }) {
   const layerRef = useRef(null);
   const sourceRef = useRef(null);
   const labelRef = useRef(null);
-  const hoveredRef = useRef(hoveredId);
-  hoveredRef.current = hoveredId;
-  const pinnedRef = useRef(pinnedIds);
-  pinnedRef.current = pinnedIds;
 
   useEffect(() => {
     const ol = window.ol;
@@ -677,8 +679,8 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, hiddenIds = 
       source,
       style: (feature) => {
         const id = feature.get('resultId');
-        const isHovered = id === hoveredRef.current;
-        const isPinned = (pinnedRef.current || []).includes(id);
+        const isHovered = id === hoveredId;
+        const isPinned = pinnedIds.includes(id);
 
         if (isPinned) {
           return new ol.style.Style({
@@ -721,23 +723,21 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, hiddenIds = 
     sourceRef.current.clear();
     results.forEach(r => {
       if (!r.footprint) return;
-      if ((hiddenIds || []).includes(r.id)) return;
       try {
         const format = new ol.format.GeoJSON();
-        const geometry = format.readGeometry(r.footprint);
-        const feature = new ol.Feature({ geometry });
+        const feature = format.readFeature(r.footprint);
         feature.set('resultId', r.id);
         feature.set('title', r.title);
         sourceRef.current.addFeature(feature);
       } catch { /* skip invalid footprint */ }
     });
-  }, [results, hiddenIds]);
+  }, [results]);
 
   useEffect(() => {
     const ol = window.ol;
     if (!ol || !layerRef.current || !map) return;
 
-    if (results.length > 0 && layerVisible) {
+    if (results.length > 0) {
       if (!map.getLayers().getArray().includes(layerRef.current)) {
         const layers = map.getLayers();
         const vecIdx = layers.getArray().findIndex(l => l instanceof ol.layer.Vector && l.get('inspectorName') === 'Drawn features');
@@ -748,7 +748,7 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, hiddenIds = 
         map.removeLayer(layerRef.current);
       }
     }
-  }, [results, map, layerVisible]);
+  }, [results, map]);
 
   useEffect(() => {
     const ol = window.ol;
@@ -796,6 +796,61 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, hiddenIds = 
     map.addOverlay(overlay);
     labelRef.current = overlay;
   }, [map, hoveredId, pinnedIds]);
+
+  return null;
+}
+
+function ArchivalPreviewLayer({ map, results, previewIds }) {
+  const layersRef = useRef(new Map()); // resultId -> ol.layer.Image
+
+  useEffect(() => {
+    const ol = window.ol;
+    if (!ol || !map) return;
+
+    const byId = new Map(results.map(r => [r.id, r]));
+
+    // Remove previews that are no longer requested or no longer in results
+    for (const [id, layer] of Array.from(layersRef.current.entries())) {
+      if (!previewIds.includes(id) || !byId.has(id)) {
+        try { map.removeLayer(layer); } catch {}
+        layersRef.current.delete(id);
+      }
+    }
+
+    // Add newly requested previews
+    for (const id of previewIds) {
+      if (layersRef.current.has(id)) continue;
+      const result = byId.get(id);
+      if (!result?.previewUrl) continue;
+      try {
+        const proxyUrl = `/api/vendors/mgp-pro/browse?url=${encodeURIComponent(result.previewUrl)}`;
+        const source = new ol.source.GeoTIFF({ sources: [{ url: proxyUrl }] });
+        const layer = new ol.layer.Image({ source, opacity: 1 });
+        layer.set('inspectorName', `Preview: ${result.title}`);
+        layer.set('inspectorCategory', 'Archival');
+        layer.set('resultId', id);
+        // Insert above footprints so the image covers its outline
+        const layers = map.getLayers();
+        const arr = layers.getArray();
+        const topIdx = arr.findIndex(l => l.get('inspectorName') === 'Drawn features');
+        layers.insertAt(topIdx >= 0 ? topIdx : layers.getLength(), layer);
+        layersRef.current.set(id, layer);
+      } catch { /* skip unloadable preview */ }
+    }
+  }, [map, results, previewIds]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    const layers = layersRef.current;
+    return () => {
+      if (!map) return;
+      for (const layer of layers.values()) {
+        try { map.removeLayer(layer); } catch {}
+      }
+      layers.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]);
 
   return null;
 }

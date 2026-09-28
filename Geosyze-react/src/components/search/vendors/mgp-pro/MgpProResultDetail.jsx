@@ -9,6 +9,9 @@ function formatDate(iso) {
 
 export default function MgpProResultDetail({ result, onClose }) {
   const entries = Object.entries(result.rawProperties || {});
+  // Only render <img> for browser-displayable formats; GeoTIFF browse
+  // images are shown on the map via the Preview button instead.
+  const showImgPreview = result.previewUrl && /\.(jpe?g|png|webp|gif)(\?|$)/i.test(result.previewUrl);
 
   function formatValue(val) {
     if (val == null) return '—';
@@ -29,7 +32,7 @@ export default function MgpProResultDetail({ result, onClose }) {
           <h3>{result.title}</h3>
           <button className={styles.close} onClick={onClose}>&times;</button>
         </div>
-        {result.previewUrl && (
+        {showImgPreview && (
           <div className={styles.preview}>
             <img src={result.previewUrl} alt={result.title} className={styles.previewImg} />
           </div>

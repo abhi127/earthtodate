@@ -20,12 +20,13 @@ describe('MgpProAdapter', () => {
           datetime: '2025-06-15T10:30:00Z',
           'eo:cloud_cover': 5.0,
           'view:off_nadir': 12.5,
+          'area:cloud_cover_percentage': 3.2,
+          'area:avg_off_nadir_angle': 11.8,
           gsd: 0.5,
           platform: 'wv02',
         },
         assets: {
-          thumbnail: { href: 'https://example.com/thumb.jpg' },
-          preview: { href: 'https://example.com/preview.jpg' },
+          browse: { href: 'https://api.maxar.com/discovery/v1/browse/test-id-1.tif' },
         },
       },
       {
@@ -60,12 +61,13 @@ describe('MgpProAdapter', () => {
     expect(results).toHaveLength(2);
     expect(results[0].id).toBe('test-id-1');
     expect(results[0].vendor).toBe('mgp-pro');
-    expect(results[0].cloudCover).toBe(5.0);
-    expect(results[0].offNadirAngle).toBe(12.5);
+    // Area-based values take precedence over whole-strip values
+    expect(results[0].cloudCover).toBe(3.2);
+    expect(results[0].offNadirAngle).toBe(11.8);
     expect(results[0].resolution).toBe(0.5);
     expect(results[0].sensor).toBe('wv02');
-    expect(results[0].thumbnailUrl).toBe('https://example.com/thumb.jpg');
-    expect(results[0].previewUrl).toBe('https://example.com/preview.jpg');
+    expect(results[0].thumbnailUrl).toBeNull();
+    expect(results[0].previewUrl).toBe('https://api.maxar.com/discovery/v1/browse/test-id-1.tif');
     expect(results[0].rawProperties).toHaveProperty('eo:cloud_cover', 5.0);
   });
 
@@ -105,6 +107,64 @@ describe('MgpProAdapter', () => {
     expect(String(url)).toContain('filter=eo%3Acloud_cover+%3C+15');
     expect(String(url)).toContain('area-based-calc=true');
     expect((init as any).headers['maxar-api-key']).toBe('secret-key');
+  });
+
+  it('falls back to whole-strip values when area-based values are missing', async () => {
+    process.env.MGP_API_KEY = 'test-key';
+    const noAreaResponse = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          id: 'test-id-3',
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: [[[77.0, 28.0], [77.1, 28.0], [77.1, 28.1], [77.0, 28.1], [77.0, 28.0]]] },
+          properties: {
+            datetime: '2025-08-01T10:00:00Z',
+            'eo:cloud_cover': 7.5,
+            'view:off_nadir': 14.0,
+            gsd: 0.5,
+            platform: 'wv02',
+          },
+          assets: {},
+        },
+      ],
+    };
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify(noAreaResponse), { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    const adapter = new MgpProAdapter(fetchMock);
+    const results = await adapter.search({ aoi: { type: 'BBox', bbox: [77.0, 28.0, 77.1, 28.1] } });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].cloudCover).toBe(7.5);
+    expect(results[0].offNadirAngle).toBe(14.0);
+  });
+
+  it('proxies vendor assets through the API key', async () => {
+    process.env.MGP_API_KEY = 'test-key';
+    const tiffBytes = Buffer.from([73, 73, 42, 0]);
+    const fetchMock = jest.fn(async () => new Response(tiffBytes, {
+      status: 200,
+      headers: { 'content-type': 'image/tiff; application=geotiff' },
+    })) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    const adapter = new MgpProAdapter(fetchMock);
+    const result = await adapter.proxyAsset('https://api.maxar.com/discovery/v1/browse/test.tif');
+
+    expect(result.body).toEqual(tiffBytes);
+    expect(result.contentType).toBe('image/tiff; application=geotiff');
+    const mock = fetchMock as unknown as jest.Mock;
+    expect((mock.mock.calls[0][1] as any).headers['maxar-api-key']).toBe('test-key');
+  });
+
+  it('rejects non-MGP asset URLs', async () => {
+    process.env.MGP_API_KEY = 'test-key';
+    const fetchMock = jest.fn(async () => new Response('x', { status: 200 })) as unknown as typeof fetch;
+
+    const adapter = new MgpProAdapter(fetchMock);
+    await expect(adapter.proxyAsset('https://evil.com/steal.tif'))
+      .rejects.toThrow('VENDOR_BAD_REQUEST');
   });
 
   it('throws VENDOR_AUTH_ERROR on 401', async () => {

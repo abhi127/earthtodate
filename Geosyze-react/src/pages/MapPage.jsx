@@ -22,8 +22,7 @@ export default function MapPage() {
   const [archivalResults, setArchivalResults] = useState([]);
   const [hoveredResultId, setHoveredResultId] = useState(null);
   const [pinnedResultIds, setPinnedResultIds] = useState([]);
-  const [hiddenFootprintIds, setHiddenFootprintIds] = useState([]);
-  const [footprintsVisible, setFootprintsVisible] = useState(true);
+  const [previewResultIds, setPreviewResultIds] = useState([]);
   // Ids of extra maps auto-added alongside the satellite panel (as opposed to
   // maps the user added manually via compare controls). Closing the satellite
   // panel removes auto-added maps but keeps manual ones.
@@ -122,8 +121,8 @@ export default function MapPage() {
     setPinnedResultIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
   const handleArchivalClearPins = useCallback(() => setPinnedResultIds([]), []);
-  const handleToggleFootprint = useCallback((id) => {
-    setHiddenFootprintIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const handleArchivalTogglePreview = useCallback((id) => {
+    setPreviewResultIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
 
   const handleMenuAction = useCallback((action) => {
@@ -201,13 +200,11 @@ export default function MapPage() {
           onArchivalResultsChange={setArchivalResults}
           hoveredResultId={hoveredResultId}
           pinnedResultIds={pinnedResultIds}
+          previewResultIds={previewResultIds}
           onArchivalHover={handleArchivalHover}
           onArchivalTogglePin={handleArchivalTogglePin}
           onArchivalClearPins={handleArchivalClearPins}
-          hiddenFootprintIds={hiddenFootprintIds}
-          footprintsVisible={footprintsVisible}
-          onToggleFootprint={handleToggleFootprint}
-          onToggleFootprintsVisible={() => setFootprintsVisible(v => !v)}
+          onArchivalTogglePreview={handleArchivalTogglePreview}
         />
         <main className={styles.mapArea}>
           <MapView
@@ -228,10 +225,10 @@ export default function MapPage() {
             archivalResults={archivalResults}
             hoveredResultId={hoveredResultId}
             pinnedResultIds={pinnedResultIds}
-            hiddenFootprintIds={hiddenFootprintIds}
-            footprintsVisible={footprintsVisible}
+            previewResultIds={previewResultIds}
             onArchivalHover={handleArchivalHover}
             onArchivalTogglePin={handleArchivalTogglePin}
+            onArchivalTogglePreview={handleArchivalTogglePreview}
           />
         </main>
       </div>

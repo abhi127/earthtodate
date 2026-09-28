@@ -26,4 +26,13 @@ export class VendorsService {
     if (!adapter) throw new NotFoundException(`Unknown vendor: ${vendorId}`);
     return adapter.search(params);
   }
+
+  async proxyAsset(vendorId: string, assetUrl: string): Promise<{ body: Buffer; contentType: string }> {
+    const adapter = this.adapters.get(vendorId);
+    if (!adapter) throw new NotFoundException(`Unknown vendor: ${vendorId}`);
+    if (typeof (adapter as any).proxyAsset !== 'function') {
+      throw new NotFoundException(`Vendor ${vendorId} does not support asset proxying`);
+    }
+    return (adapter as any).proxyAsset(assetUrl);
+  }
 }

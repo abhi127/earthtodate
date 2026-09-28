@@ -4,7 +4,7 @@ import MgpProResultsList from './vendors/mgp-pro/MgpProResultsList';
 import MgpProResultDetail from './vendors/mgp-pro/MgpProResultDetail';
 import styles from './ArchivalSearchPanel.module.css';
 
-export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, hoveredId, pinnedIds, onHover, onTogglePin, onClearPins, hiddenIds, footprintsVisible, onToggleFootprint, onToggleFootprintsVisible }) {
+export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, hoveredId, pinnedIds, previewIds, onHover, onTogglePin, onClearPins, onTogglePreview }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -75,25 +75,14 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
 
       {!loading && results.length > 0 && (
         <div className={styles.resultsWrap}>
-          <div className={styles.resultsBar}>
-            <span className={styles.count}>{results.length} image{results.length === 1 ? '' : 's'} found</span>
-            <button
-              type="button"
-              className={`${styles.layerToggle} ${footprintsVisible ? styles.layerToggleOn : ''}`}
-              onClick={onToggleFootprintsVisible}
-              title={footprintsVisible ? 'Hide all footprints' : 'Show all footprints'}
-            >
-              {footprintsVisible ? '◉' : '○'} Footprints
-            </button>
-          </div>
           <MgpProResultsList
             results={results}
             hoveredId={hoveredId}
             pinnedIds={pinnedIds || []}
-            hiddenIds={hiddenIds || []}
+            previewIds={previewIds || []}
             onHover={onHover}
             onTogglePin={onTogglePin}
-            onToggleFootprint={onToggleFootprint}
+            onTogglePreview={onTogglePreview}
             onOpenDetail={setDetailResult}
           />
         </div>
