@@ -125,6 +125,20 @@ export default function MapPage() {
     setPreviewResultIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
 
+  // Clean up all archival layers (footprints, previews, labels) when the
+  // archive panel closes or the user switches to another panel. Clearing
+  // the state drives each map layer's own removal logic.
+  const prevPanelRef = useRef(activePanel);
+  useEffect(() => {
+    if (prevPanelRef.current === 'archive' && activePanel !== 'archive') {
+      setArchivalResults([]);
+      setPinnedResultIds([]);
+      setPreviewResultIds([]);
+      setHoveredResultId(null);
+    }
+    prevPanelRef.current = activePanel;
+  }, [activePanel]);
+
   const handleMenuAction = useCallback((action) => {
     switch (action) {
       case 'new-project':
