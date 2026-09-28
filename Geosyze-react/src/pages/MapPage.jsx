@@ -119,6 +119,7 @@ export default function MapPage() {
   const handleArchivalTogglePin = useCallback((id) => {
     setPinnedResultIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
+  const handleArchivalClearPins = useCallback(() => setPinnedResultIds([]), []);
 
   const handleMenuAction = useCallback((action) => {
     switch (action) {
@@ -193,6 +194,11 @@ export default function MapPage() {
           satCategory={satCategory}
           mapRef={mapRef}
           onArchivalResultsChange={setArchivalResults}
+          hoveredResultId={hoveredResultId}
+          pinnedResultIds={pinnedResultIds}
+          onArchivalHover={handleArchivalHover}
+          onArchivalTogglePin={handleArchivalTogglePin}
+          onArchivalClearPins={handleArchivalClearPins}
         />
         <main className={styles.mapArea}>
           <MapView

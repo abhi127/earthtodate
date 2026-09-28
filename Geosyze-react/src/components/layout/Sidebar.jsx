@@ -153,7 +153,7 @@ function PlaceholderPanel({ note }) {
 // a side panel.
 const SAT_CATEGORY = { e2d: 'visual', ai: 'ai', analytics: 'analytics' };
 
-export default function Sidebar({ activePanel, onSelectPanel, activeBasemap, onSelectBasemap, satelliteOpen, satCategory, mapRef, onArchivalResultsChange }) {
+export default function Sidebar({ activePanel, onSelectPanel, activeBasemap, onSelectBasemap, satelliteOpen, satCategory, mapRef, onArchivalResultsChange, hoveredResultId, pinnedResultIds, onArchivalHover, onArchivalTogglePin, onArchivalClearPins }) {
   const item = RAIL_ITEMS.find(i => i.id === activePanel);
 
   function renderPanel() {
@@ -165,7 +165,7 @@ export default function Sidebar({ activePanel, onSelectPanel, activeBasemap, onS
       case 'earthdaily':
         return <PlaceholderPanel note="EarthDaily imagery is not connected yet. This panel is reserved for the EarthDaily catalogue and ordering flow." />;
       case 'archive':
-        return <ArchivalSearchPanel mapRef={mapRef} onClose={() => onSelectPanel('archive')} onResultsChange={onArchivalResultsChange} />;
+        return <ArchivalSearchPanel mapRef={mapRef} onClose={() => onSelectPanel('archive')} onResultsChange={onArchivalResultsChange} hoveredId={hoveredResultId} pinnedIds={pinnedResultIds} onHover={onArchivalHover} onTogglePin={onArchivalTogglePin} onClearPins={onArchivalClearPins} />;
       case 'vantor':
         return <PlaceholderPanel note="Vantor (formerly Maxar) tasking and related APIs are not connected yet. Credentials and endpoint details are pending." />;
       default:

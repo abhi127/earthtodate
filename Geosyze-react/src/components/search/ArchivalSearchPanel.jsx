@@ -4,12 +4,10 @@ import MgpProResultsList from './vendors/mgp-pro/MgpProResultsList';
 import MgpProResultDetail from './vendors/mgp-pro/MgpProResultDetail';
 import styles from './ArchivalSearchPanel.module.css';
 
-export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }) {
+export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, hoveredId, pinnedIds, onHover, onTogglePin, onClearPins }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [hoveredId, setHoveredId] = useState(null);
-  const [pinnedIds, setPinnedIds] = useState([]);
   const [detailResult, setDetailResult] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
@@ -18,7 +16,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
     setLoading(true);
     setError('');
     setResults([]);
-    setPinnedIds([]);
+    onClearPins?.();
     setHasSearched(true);
     setFiltersOpen(false);
     onResultsChange?.([]);
@@ -40,10 +38,6 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const handleTogglePin = useCallback((id) => {
-    setPinnedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
 
   const vendor = getVendorComponent('mgp-pro');
@@ -84,9 +78,9 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }
           <MgpProResultsList
             results={results}
             hoveredId={hoveredId}
-            pinnedIds={pinnedIds}
-            onHover={setHoveredId}
-            onTogglePin={handleTogglePin}
+            pinnedIds={pinnedIds || []}
+            onHover={onHover}
+            onTogglePin={onTogglePin}
             onOpenDetail={setDetailResult}
           />
         </div>

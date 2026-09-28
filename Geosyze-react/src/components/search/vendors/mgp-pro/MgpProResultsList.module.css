@@ -77,11 +77,16 @@
   margin-top: 2px;
 }
 .meta {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   color: var(--textMuted, #94A3B8);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.metaIcon {
+  font-size: 0.8rem;
+  margin-right: 2px;
+  vertical-align: -1px;
 }
 .meta strong {
   color: var(--text, #F8FAFC);

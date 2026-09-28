@@ -33,9 +33,9 @@ export default function MgpProResultsList({ results, hoveredId, pinnedIds, onHov
               <span className={styles.title} title={r.title}>{r.title}</span>
               <span className={styles.date}>{formatDate(r.acquisitionDate)} · {r.sensor || '—'}</span>
               <div className={styles.metaGrid}>
-                <span className={styles.meta} title="Cloud cover">☁ <strong>{r.cloudCover != null ? `${r.cloudCover.toFixed(1)}%` : '—'}</strong></span>
-                <span className={styles.meta} title="Resolution">◈ <strong>{r.resolution != null ? `${r.resolution.toFixed(2)}m` : '—'}</strong></span>
-                <span className={styles.meta} title="Off-nadir angle">∠ <strong>{r.offNadirAngle != null ? `${r.offNadirAngle.toFixed(1)}°` : '—'}</strong></span>
+                <span className={styles.meta} title="Cloud cover"><span className={styles.metaIcon}>☁</span> <strong>{r.cloudCover != null ? `${r.cloudCover.toFixed(1)}%` : '—'}</strong></span>
+                <span className={styles.meta} title="Resolution"><span className={styles.metaIcon}>◈</span> <strong>{r.resolution != null ? `${r.resolution.toFixed(2)}m` : '—'}</strong></span>
+                <span className={styles.meta} title="Off-nadir angle"><span className={styles.metaIcon}>∠</span> <strong>{r.offNadirAngle != null ? `${r.offNadirAngle.toFixed(1)}°` : '—'}</strong></span>
                 <span className={styles.meta} title="Collection">{r.id?.slice(-6) || ''}</span>
               </div>
             </div>
