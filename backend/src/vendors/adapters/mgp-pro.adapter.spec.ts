@@ -154,8 +154,35 @@ describe('MgpProAdapter', () => {
 
     expect(result.body).toEqual(tiffBytes);
     expect(result.contentType).toBe('image/tiff; application=geotiff');
+    expect(result.status).toBe(200);
     const mock = fetchMock as unknown as jest.Mock;
     expect((mock.mock.calls[0][1] as any).headers['maxar-api-key']).toBe('test-key');
+  });
+
+  it('forwards byte-range requests and relays 206 responses', async () => {
+    process.env.MGP_API_KEY = 'test-key';
+    const slice = Buffer.from([1, 2, 3, 4]);
+    const fetchMock = jest.fn(async () => new Response(slice, {
+      status: 206,
+      headers: {
+        'content-type': 'image/tiff; application=geotiff',
+        'content-range': 'bytes 0-3/1318886',
+        'content-length': '4',
+      },
+    })) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    const adapter = new MgpProAdapter(fetchMock);
+    const result = await adapter.proxyAsset(
+      'https://api.maxar.com/discovery/v1/browse/test.tif',
+      'bytes=0-3',
+    );
+
+    const mock = fetchMock as unknown as jest.Mock;
+    expect((mock.mock.calls[0][1] as any).headers['Range']).toBe('bytes=0-3');
+    expect(result.status).toBe(206);
+    expect(result.contentRange).toBe('bytes 0-3/1318886');
+    expect(result.body).toEqual(slice);
   });
 
   it('rejects non-MGP asset URLs', async () => {

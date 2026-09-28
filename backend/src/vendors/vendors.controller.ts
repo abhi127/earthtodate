@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Post, Query, Res, BadGatewayException, BadRequestException } from '@nestjs/common';
-import { Response } from 'express';
+import { Body, Controller, Get, Param, Post, Query, Req, Res, BadGatewayException, BadRequestException } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { VendorsService } from './vendors.service';
 import { VendorSearchParams } from './adapters/vendor.adapter.interface';
 
@@ -16,14 +16,21 @@ export class VendorsController {
   async proxyBrowse(
     @Param('vendorId') vendorId: string,
     @Query('url') assetUrl: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     if (!assetUrl) {
       throw new BadRequestException('Missing url query parameter');
     }
     try {
-      const { body, contentType } = await this.vendorsService.proxyAsset(vendorId, assetUrl);
-      res.set({ 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' });
+      const { body, contentType, status, contentRange, contentLength } =
+        await this.vendorsService.proxyAsset(vendorId, assetUrl, req.headers['range']);
+      res.status(status);
+      res.set({ 'Content-Type': contentType, 'Accept-Ranges': 'bytes' });
+      if (contentRange) res.set({ 'Content-Range': contentRange });
+      if (contentLength != null) res.set({ 'Content-Length': String(contentLength) });
+      // Only cache full-file responses; partial content varies by range.
+      if (status === 200) res.set({ 'Cache-Control': 'public, max-age=86400' });
       res.send(body);
     } catch (e: any) {
       const message = e.message || '';

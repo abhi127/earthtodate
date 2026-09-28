@@ -120,8 +120,13 @@ export class MgpProAdapter implements VendorAdapter {
   /**
    * Proxy a vendor asset (e.g. the browse GeoTIFF) so the browser can load
    * it without holding the API key. Only MGP asset URLs are allowed.
+   * Forwards byte-range requests so GeoTIFF/COG readers can fetch partial
+   * content (206 Partial Content) instead of the whole file.
    */
-  async proxyAsset(assetUrl: string): Promise<{ body: Buffer; contentType: string }> {
+  async proxyAsset(
+    assetUrl: string,
+    range?: string,
+  ): Promise<{ body: Buffer; contentType: string; status: number; contentRange?: string; contentLength?: number }> {
     if (!this.apiKey) {
       throw new Error('VENDOR_AUTH_ERROR: MGP_API_KEY not configured');
     }
@@ -129,10 +134,13 @@ export class MgpProAdapter implements VendorAdapter {
       throw new Error('VENDOR_BAD_REQUEST: asset URL must be an api.maxar.com URL');
     }
 
+    const headers: Record<string, string> = { 'maxar-api-key': this.apiKey };
+    if (range) headers['Range'] = range;
+
     let response;
     try {
       response = await this.fetchFn(assetUrl, {
-        headers: { 'maxar-api-key': this.apiKey },
+        headers,
         signal: AbortSignal.timeout(MGP_TIMEOUT_MS),
       });
     } catch (e: any) {
@@ -140,10 +148,21 @@ export class MgpProAdapter implements VendorAdapter {
     }
 
     if (response.status === 401) throw new Error('VENDOR_AUTH_ERROR: Invalid API key');
-    if (!response.ok) throw new Error(`VENDOR_UNAVAILABLE: HTTP ${response.status}`);
+    if (response.status === 416) throw new Error('VENDOR_BAD_REQUEST: unsatisfiable range');
+    if (response.status !== 200 && response.status !== 206) {
+      throw new Error(`VENDOR_UNAVAILABLE: HTTP ${response.status}`);
+    }
 
     const buf = Buffer.from(await response.arrayBuffer());
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
-    return { body: buf, contentType };
+    const contentRange = response.headers.get('content-range') || undefined;
+    const lengthHeader = response.headers.get('content-length');
+    return {
+      body: buf,
+      contentType,
+      status: response.status,
+      contentRange,
+      contentLength: lengthHeader ? Number(lengthHeader) : buf.length,
+    };
   }
 }
