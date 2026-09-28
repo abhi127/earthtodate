@@ -19,9 +19,10 @@ export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
   const [cloudMax, setCloudMax] = useState(20);
   const [collections, setCollections] = useState(['wv02', 'wv03']);
 
-  const handleDrawComplete = useCallback((geojson) => {
-    if (geojson?.type === 'Polygon' && geojson.coordinates?.[0]?.length >= 4) {
-      setAoi({ type: 'Polygon', coordinates: geojson.coordinates });
+  const handleDrawComplete = useCallback((feature) => {
+    const geom = feature?.geometry;
+    if (geom?.type === 'Polygon' && geom.coordinates?.[0]?.length >= 4) {
+      setAoi({ type: 'Polygon', coordinates: geom.coordinates });
       setAoiMode('draw');
       setAoiError('');
     } else {
