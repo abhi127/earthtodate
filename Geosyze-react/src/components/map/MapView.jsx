@@ -675,31 +675,7 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
     const source = new ol.source.Vector();
     sourceRef.current = source;
 
-    const layer = new ol.layer.Vector({
-      source,
-      style: (feature) => {
-        const id = feature.get('resultId');
-        const isHovered = id === hoveredId;
-        const isPinned = pinnedIds.includes(id);
-
-        if (isPinned) {
-          return new ol.style.Style({
-            fill: new ol.style.Fill({ color: 'rgba(230, 126, 34, 0.25)' }),
-            stroke: new ol.style.Stroke({ color: '#e67e22', width: 2 }),
-          });
-        }
-        if (isHovered) {
-          return new ol.style.Style({
-            fill: new ol.style.Fill({ color: 'rgba(241, 196, 15, 0.35)' }),
-            stroke: new ol.style.Stroke({ color: '#f1c40f', width: 2 }),
-          });
-        }
-        return new ol.style.Style({
-          fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.15)' }),
-          stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.4)', width: 1 }),
-        });
-      },
-    });
+    const layer = new ol.layer.Vector({ source });
     layer.set('inspectorName', 'Archival Results');
     layer.set('inspectorCategory', 'Archival');
     layerRef.current = layer;
@@ -714,24 +690,57 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
   }, []);
 
   useEffect(() => {
+    const ol = window.ol;
+    if (!ol || !layerRef.current) return;
+    // Re-set style on every hover/pin change so the closure always sees
+    // current values (a style set once would capture stale state).
+    layerRef.current.setStyle((feature) => {
+      const id = feature.get('resultId');
+      const isHovered = id === hoveredId;
+      const isPinned = pinnedIds.includes(id);
+
+      if (isPinned) {
+        return new ol.style.Style({
+          fill: new ol.style.Fill({ color: 'rgba(230, 126, 34, 0.25)' }),
+          stroke: new ol.style.Stroke({ color: '#e67e22', width: 2 }),
+        });
+      }
+      if (isHovered) {
+        return new ol.style.Style({
+          fill: new ol.style.Fill({ color: 'rgba(241, 196, 15, 0.35)' }),
+          stroke: new ol.style.Stroke({ color: '#f1c40f', width: 2 }),
+        });
+      }
+      return new ol.style.Style({
+        fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.15)' }),
+        stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.4)', width: 1 }),
+      });
+    });
     if (sourceRef.current) sourceRef.current.changed();
   }, [hoveredId, pinnedIds]);
 
   useEffect(() => {
     const ol = window.ol;
-    if (!ol || !sourceRef.current) return;
+    if (!ol || !sourceRef.current || !map) return;
+    const viewProj = map.getView().getProjection();
     sourceRef.current.clear();
     results.forEach(r => {
       if (!r.footprint) return;
       try {
         const format = new ol.format.GeoJSON();
-        const feature = format.readFeature(r.footprint);
+        // Footprint is a geometry in EPSG:4326 — read as geometry and
+        // reproject to the map's view projection.
+        const geometry = format.readGeometry(r.footprint, {
+          dataProjection: 'EPSG:4326',
+          featureProjection: viewProj,
+        });
+        const feature = new ol.Feature({ geometry });
         feature.set('resultId', r.id);
         feature.set('title', r.title);
         sourceRef.current.addFeature(feature);
       } catch { /* skip invalid footprint */ }
     });
-  }, [results]);
+  }, [results, map]);
 
   useEffect(() => {
     const ol = window.ol;
@@ -755,13 +764,18 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
     if (!ol || !map) return;
 
     const handlePointerMove = (e) => {
-      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f, {
+        layerFilter: (l) => l === layerRef.current,
+      });
       onHover?.(feature?.get('resultId') || null);
     };
 
     const handleClick = (e) => {
-      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
-      if (feature) onTogglePin?.(feature.get('resultId'));
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f, {
+        layerFilter: (l) => l === layerRef.current,
+      });
+      const resultId = feature?.get('resultId');
+      if (resultId) onTogglePin?.(resultId);
     };
 
     map.on('pointermove', handlePointerMove);
