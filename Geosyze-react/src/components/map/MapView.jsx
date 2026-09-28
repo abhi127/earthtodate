@@ -724,8 +724,12 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
     if (!ol || !sourceRef.current || !map) return;
     const viewProj = map.getView().getProjection();
     sourceRef.current.clear();
+    // Only the hovered and held footprints are rendered — nothing
+    // is shown by default.
+    const visibleIds = new Set([hoveredId, ...pinnedIds].filter(Boolean));
+    if (visibleIds.size === 0) return;
     results.forEach(r => {
-      if (!r.footprint) return;
+      if (!r.footprint || !visibleIds.has(r.id)) return;
       try {
         const format = new ol.format.GeoJSON();
         // Footprint is a geometry in EPSG:4326 — read as geometry and
@@ -740,7 +744,7 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
         sourceRef.current.addFeature(feature);
       } catch { /* skip invalid footprint */ }
     });
-  }, [results, map]);
+  }, [results, map, hoveredId, pinnedIds]);
 
   useEffect(() => {
     const ol = window.ol;
@@ -838,8 +842,11 @@ function ArchivalPreviewLayer({ map, results, previewIds }) {
       if (!result?.previewUrl) continue;
       try {
         const proxyUrl = `/api/vendors/mgp-pro/browse?url=${encodeURIComponent(result.previewUrl)}`;
+        // Note: GeoTIFF is a DataTile source — it must be used with a
+        // Tile layer, not an Image layer (Image renderer requires
+        // getImage(), which DataTile sources don't implement).
         const source = new ol.source.GeoTIFF({ sources: [{ url: proxyUrl }] });
-        const layer = new ol.layer.Image({ source, opacity: 1 });
+        const layer = new ol.layer.Tile({ source, opacity: 1 });
         layer.set('inspectorName', `Preview: ${result.title}`);
         layer.set('inspectorCategory', 'Archival');
         layer.set('resultId', id);
