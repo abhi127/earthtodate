@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { GisModule } from './gis/gis.module';
 import { TilesModule } from './tiles/tiles.module';
+import { VendorsModule } from './vendors/vendors.module';
 
 const frontendDist = process.env.FRONTEND_DIST || 'public';
 
@@ -28,6 +29,7 @@ const frontendDist = process.env.FRONTEND_DIST || 'public';
     UsersModule,
     GisModule,
     TilesModule,
+    VendorsModule,
   ],
   providers: [
     {
