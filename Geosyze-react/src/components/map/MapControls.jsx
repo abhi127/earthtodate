@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import styles from './MapControls.module.css';
 
-export default function MapControls({ map, measureSlotRef, layerInspectorOpen, onToggleLayerInspector }) {
+export default function MapControls({ map, measureSlotRef, layerInspectorOpen, onToggleLayerInspector, compareActive, onToggleCompare }) {
   const ol = window.ol;
 
   const zoomIn = useCallback(() => {
@@ -98,6 +98,18 @@ export default function MapControls({ map, measureSlotRef, layerInspectorOpen, o
         <button className={styles.btn} onClick={resetHome} title="Home">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m4 0a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v4m6-8l2 2"/>
+          </svg>
+        </button>
+        <button
+          className={`${styles.btn} ${compareActive ? styles.btnActive : ''}`}
+          onClick={() => onToggleCompare?.()}
+          title={compareActive ? 'Exit compare' : 'Compare maps'}
+          aria-label="Compare maps"
+          aria-pressed={!!compareActive}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="18" rx="1" />
+            <rect x="14" y="3" width="7" height="18" rx="1" />
           </svg>
         </button>
         <button className={styles.btn} onClick={toggleFullscreen} title="Full screen">

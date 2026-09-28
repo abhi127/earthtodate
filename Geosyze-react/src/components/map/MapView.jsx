@@ -554,6 +554,8 @@ const MapView = forwardRef(function MapView({
           measureSlotRef={setMeasureSlot}
           layerInspectorOpen={layerInspectorOpen}
           onToggleLayerInspector={() => setLayerInspectorOpen(open => !open)}
+          compareActive={hasExtras}
+          onToggleCompare={handleCompareToggle}
         />
       )}
       {mapReady && (
