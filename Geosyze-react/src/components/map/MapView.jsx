@@ -37,7 +37,12 @@ const MapView = forwardRef(function MapView({
   searchTick = 0,
   onBasemapChange,
   satCategory,
-  onSatCategoryChange
+  onSatCategoryChange,
+  archivalResults = [],
+  hoveredResultId = null,
+  pinnedResultIds = [],
+  onArchivalHover,
+  onArchivalTogglePin,
 }, ref) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
@@ -208,6 +213,29 @@ const MapView = forwardRef(function MapView({
         center: ol.proj.fromLonLat(lngLat),
         zoom,
         duration: 600,
+      });
+    },
+
+    getViewExtent() {
+      const ol = window.ol;
+      const map = mapInstance.current;
+      if (!ol || !map) return null;
+      const extent = map.getView().calculateExtent();
+      const min = ol.proj.toLonLat([extent[0], extent[1]]);
+      const max = ol.proj.toLonLat([extent[2], extent[3]]);
+      return [min[0], min[1], max[0], max[1]];
+    },
+
+    onDrawComplete(callback) {
+      const ol = window.ol;
+      const map = mapInstance.current;
+      if (!ol || !map) return;
+      const draw = drawInteractionRef.current;
+      if (!draw) return;
+      draw.on('drawend', (e) => {
+        const format = new ol.format.GeoJSON();
+        const geojson = format.writeFeature(e.feature);
+        callback(JSON.parse(geojson));
       });
     },
   }));
@@ -582,6 +610,16 @@ const MapView = forwardRef(function MapView({
         />
       )}
 
+      {mapReady && (
+        <ArchivalResultsLayer
+          results={archivalResults}
+          hoveredId={hoveredResultId}
+          pinnedIds={pinnedResultIds}
+          onHover={onArchivalHover}
+          onTogglePin={onArchivalTogglePin}
+        />
+      )}
+
       {drawType && (
         <div className={styles.drawPill}>
           <span className={styles.pillDot} />
@@ -610,5 +648,142 @@ const MapView = forwardRef(function MapView({
     </div>
   );
 });
+
+function ArchivalResultsLayer({ results, hoveredId, pinnedIds, onHover, onTogglePin }) {
+  const layerRef = useRef(null);
+  const sourceRef = useRef(null);
+  const labelRef = useRef(null);
+
+  useEffect(() => {
+    const ol = window.ol;
+    if (!ol) return;
+
+    const source = new ol.source.Vector();
+    sourceRef.current = source;
+
+    const layer = new ol.layer.Vector({
+      source,
+      style: (feature) => {
+        const id = feature.get('resultId');
+        const isHovered = id === hoveredId;
+        const isPinned = pinnedIds.includes(id);
+
+        if (isPinned) {
+          return new ol.style.Style({
+            fill: new ol.style.Fill({ color: 'rgba(230, 126, 34, 0.25)' }),
+            stroke: new ol.style.Stroke({ color: '#e67e22', width: 2 }),
+          });
+        }
+        if (isHovered) {
+          return new ol.style.Style({
+            fill: new ol.style.Fill({ color: 'rgba(241, 196, 15, 0.35)' }),
+            stroke: new ol.style.Stroke({ color: '#f1c40f', width: 2 }),
+          });
+        }
+        return new ol.style.Style({
+          fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.15)' }),
+          stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.4)', width: 1 }),
+        });
+      },
+    });
+    layer.set('inspectorName', 'Archival Results');
+    layer.set('inspectorCategory', 'Archival');
+    layerRef.current = layer;
+
+    return () => {
+      if (layerRef.current && layerRef.current.getMap?.()) {
+        try { layerRef.current.getMap().removeLayer(layerRef.current); } catch {}
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sourceRef.current) sourceRef.current.changed();
+  }, [hoveredId, pinnedIds]);
+
+  useEffect(() => {
+    const ol = window.ol;
+    if (!ol || !sourceRef.current) return;
+    sourceRef.current.clear();
+    results.forEach(r => {
+      if (!r.footprint) return;
+      const format = new ol.format.GeoJSON();
+      const feature = format.readFeature(r.footprint);
+      feature.set('resultId', r.id);
+      feature.set('title', r.title);
+      sourceRef.current.addFeature(feature);
+    });
+  }, [results]);
+
+  useEffect(() => {
+    const ol = window.ol;
+    if (!ol || !layerRef.current) return;
+    const map = mapInstance.current;
+    if (!map) return;
+
+    if (results.length > 0) {
+      if (!map.getLayers().getArray().includes(layerRef.current)) {
+        const layers = map.getLayers();
+        const vecIdx = layers.getArray().findIndex(l => l instanceof ol.layer.Vector && l.get('inspectorName') === 'Drawn features');
+        layers.insertAt(vecIdx >= 0 ? vecIdx : layers.getLength(), layerRef.current);
+      }
+    } else {
+      if (map.getLayers().getArray().includes(layerRef.current)) {
+        map.removeLayer(layerRef.current);
+      }
+    }
+  }, [results]);
+
+  useEffect(() => {
+    const ol = window.ol;
+    const map = mapInstance.current;
+    if (!ol || !map) return;
+
+    const handlePointerMove = (e) => {
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+      onHover?.(feature?.get('resultId') || null);
+    };
+
+    const handleClick = (e) => {
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f);
+      if (feature) onTogglePin?.(feature.get('resultId'));
+    };
+
+    map.on('pointermove', handlePointerMove);
+    map.on('click', handleClick);
+    return () => {
+      map.un('pointermove', handlePointerMove);
+      map.un('click', handleClick);
+    };
+  }, [onHover, onTogglePin]);
+
+  useEffect(() => {
+    const ol = window.ol;
+    const map = mapInstance.current;
+    if (!ol || !map) return;
+
+    if (labelRef.current) {
+      map.removeOverlay(labelRef.current);
+      labelRef.current = null;
+    }
+
+    const activeId = hoveredId || pinnedIds[pinnedIds.length - 1];
+    if (!activeId) return;
+
+    const feature = sourceRef.current?.getFeatures().find(f => f.get('resultId') === activeId);
+    if (!feature) return;
+
+    const centroid = ol.extent.getCenter(feature.getGeometry().getExtent());
+    const div = document.createElement('div');
+    div.style.cssText = 'background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;pointer-events:none;';
+    div.textContent = feature.get('title') || activeId;
+
+    const overlay = new ol.Overlay({ position: centroid, element: div, positioning: 'bottom-center' });
+    map.addOverlay(overlay);
+    labelRef.current = overlay;
+  }, [hoveredId, pinnedIds]);
+
+  return null;
+}
 
 export default MapView;
