@@ -19,6 +19,16 @@ export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
   const [cloudMax, setCloudMax] = useState(20);
   const [collections, setCollections] = useState(['wv02', 'wv03']);
 
+  const handleDrawComplete = useCallback((geojson) => {
+    if (geojson?.type === 'Polygon' && geojson.coordinates?.[0]?.length >= 4) {
+      setAoi({ type: 'Polygon', coordinates: geojson.coordinates });
+      setAoiMode('draw');
+      setAoiError('');
+    } else {
+      setAoiError('Drawn shape must be a valid polygon');
+    }
+  }, []);
+
   const handleDrawPolygon = useCallback(() => {
     if (!mapRef?.current) return;
     setAoiMode('draw');
@@ -38,16 +48,6 @@ export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
     setAoiMode('view');
     setAoiError('');
   }, [mapRef]);
-
-  const handleDrawComplete = useCallback((geojson) => {
-    if (geojson?.type === 'Polygon' && geojson.coordinates?.[0]?.length >= 4) {
-      setAoi({ type: 'Polygon', coordinates: geojson.coordinates });
-      setAoiMode('draw');
-      setAoiError('');
-    } else {
-      setAoiError('Drawn shape must be a valid polygon');
-    }
-  }, []);
 
   const handleCollectionToggle = (id) => {
     setCollections(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
