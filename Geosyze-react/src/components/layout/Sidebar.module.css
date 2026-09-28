@@ -53,6 +53,10 @@
   overflow: hidden;
 }
 
+.panelWide {
+  width: 380px;
+}
+
 .panelHeader {
   display: flex;
   align-items: flex-start;

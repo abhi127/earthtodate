@@ -201,7 +201,7 @@ export default function Sidebar({ activePanel, onSelectPanel, activeBasemap, onS
       {activePanel === 'search' && <SearchPanel isOpen />}
 
       {body && (
-        <div className={styles.panel}>
+        <div className={`${styles.panel} ${activePanel === 'archive' ? styles.panelWide : ''}`}>
           <PanelShell
             title={item?.label}
             subtitle={activePanel === 'vantor' ? 'Tasking and other APIs' : null}
