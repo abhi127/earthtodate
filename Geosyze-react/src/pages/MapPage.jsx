@@ -19,6 +19,9 @@ export default function MapPage() {
   const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
   const [extraSatOpen, setExtraSatOpen] = useState({}); // id -> bool
   const [searchTick, setSearchTick] = useState(0); // bumps on every search jump
+  const [archivalResults, setArchivalResults] = useState([]);
+  const [hoveredResultId, setHoveredResultId] = useState(null);
+  const [pinnedResultIds, setPinnedResultIds] = useState([]);
   // Ids of extra maps auto-added alongside the satellite panel (as opposed to
   // maps the user added manually via compare controls). Closing the satellite
   // panel removes auto-added maps but keeps manual ones.
@@ -112,6 +115,11 @@ export default function MapPage() {
     mapRef.current?.clearAll();
   }, []);
 
+  const handleArchivalHover = useCallback((id) => setHoveredResultId(id), []);
+  const handleArchivalTogglePin = useCallback((id) => {
+    setPinnedResultIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
+
   const handleMenuAction = useCallback((action) => {
     switch (action) {
       case 'new-project':
@@ -183,6 +191,8 @@ export default function MapPage() {
           onSelectBasemap={handleSelectBasemap}
           satelliteOpen={anySatelliteOpen}
           satCategory={satCategory}
+          mapRef={mapRef}
+          onArchivalResultsChange={setArchivalResults}
         />
         <main className={styles.mapArea}>
           <MapView
@@ -200,6 +210,11 @@ export default function MapPage() {
             onBasemapChange={setActiveBasemap}
             satCategory={satCategory}
             onSatCategoryChange={setSatCategory}
+            archivalResults={archivalResults}
+            hoveredResultId={hoveredResultId}
+            pinnedResultIds={pinnedResultIds}
+            onArchivalHover={handleArchivalHover}
+            onArchivalTogglePin={handleArchivalTogglePin}
           />
         </main>
       </div>

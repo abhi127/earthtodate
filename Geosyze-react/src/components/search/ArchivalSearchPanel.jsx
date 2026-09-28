@@ -4,7 +4,7 @@ import MgpProResultsList from './vendors/mgp-pro/MgpProResultsList';
 import MgpProResultDetail from './vendors/mgp-pro/MgpProResultDetail';
 import styles from './ArchivalSearchPanel.module.css';
 
-export default function ArchivalSearchPanel({ mapRef, onClose }) {
+export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -17,6 +17,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose }) {
     setError('');
     setResults([]);
     setPinnedIds([]);
+    onResultsChange?.([]);
     try {
       const res = await fetch('/api/vendors/mgp-pro/search', {
         method: 'POST',
@@ -28,6 +29,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose }) {
         setError(data.error === 'VENDOR_AUTH_ERROR' ? 'Archive search unavailable — contact admin' : 'Archive provider busy — try again shortly');
       } else {
         setResults(data.results || []);
+        onResultsChange?.(data.results || []);
       }
     } catch {
       setError('Network error — check connection');
