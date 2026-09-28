@@ -1,7 +1,7 @@
 import styles from './MgpProResultDetail.module.css';
 
 export default function MgpProResultDetail({ result, onClose }) {
-  const entries = Object.entries(result.rawProperties);
+  const entries = Object.entries(result.rawProperties || {});
 
   return (
     <div className={styles.overlay} onClick={onClose}>

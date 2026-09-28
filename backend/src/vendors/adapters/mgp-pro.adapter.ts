@@ -24,17 +24,29 @@ export class MgpProAdapter implements VendorAdapter {
     }
 
     const url = this.buildSearchUrl(params);
-    const response = await this.fetchFn(url, {
-      headers: { 'maxar-api-key': this.apiKey },
-      signal: AbortSignal.timeout(MGP_TIMEOUT_MS),
-    });
+
+    let response;
+    try {
+      response = await this.fetchFn(url, {
+        headers: { 'maxar-api-key': this.apiKey },
+        signal: AbortSignal.timeout(MGP_TIMEOUT_MS),
+      });
+    } catch (e: any) {
+      throw new Error(`VENDOR_UNAVAILABLE: ${e.message}`);
+    }
 
     if (response.status === 401) throw new Error('VENDOR_AUTH_ERROR: Invalid API key');
     if (response.status === 429) throw new Error('VENDOR_UNAVAILABLE: Rate limited');
     if (!response.ok) throw new Error(`VENDOR_UNAVAILABLE: HTTP ${response.status}`);
 
-    const stac = await response.json();
-    return (stac.features || []).map((f: any) => this.normalizeFeature(f));
+    let stac;
+    try {
+      stac = await response.json();
+    } catch {
+      throw new Error('VENDOR_UNAVAILABLE: Invalid response from MGP API');
+    }
+
+    return (stac?.features || []).map((f: any) => this.normalizeFeature(f));
   }
 
   private buildSearchUrl(params: VendorSearchParams): string {

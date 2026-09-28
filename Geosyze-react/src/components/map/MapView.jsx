@@ -612,6 +612,7 @@ const MapView = forwardRef(function MapView({
 
       {mapReady && (
         <ArchivalResultsLayer
+          map={mapInstance.current}
           results={archivalResults}
           hoveredId={hoveredResultId}
           pinnedIds={pinnedResultIds}
@@ -649,7 +650,7 @@ const MapView = forwardRef(function MapView({
   );
 });
 
-function ArchivalResultsLayer({ results, hoveredId, pinnedIds, onHover, onTogglePin }) {
+function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onTogglePin }) {
   const layerRef = useRef(null);
   const sourceRef = useRef(null);
   const labelRef = useRef(null);
@@ -691,8 +692,10 @@ function ArchivalResultsLayer({ results, hoveredId, pinnedIds, onHover, onToggle
     layerRef.current = layer;
 
     return () => {
-      if (layerRef.current && layerRef.current.getMap?.()) {
-        try { layerRef.current.getMap().removeLayer(layerRef.current); } catch {}
+      const m = layerRef.current?.getMap?.();
+      if (m) {
+        if (labelRef.current) m.removeOverlay(labelRef.current);
+        if (layerRef.current) { try { m.removeLayer(layerRef.current); } catch {} }
       }
     };
   }, []);
@@ -707,19 +710,19 @@ function ArchivalResultsLayer({ results, hoveredId, pinnedIds, onHover, onToggle
     sourceRef.current.clear();
     results.forEach(r => {
       if (!r.footprint) return;
-      const format = new ol.format.GeoJSON();
-      const feature = format.readFeature(r.footprint);
-      feature.set('resultId', r.id);
-      feature.set('title', r.title);
-      sourceRef.current.addFeature(feature);
+      try {
+        const format = new ol.format.GeoJSON();
+        const feature = format.readFeature(r.footprint);
+        feature.set('resultId', r.id);
+        feature.set('title', r.title);
+        sourceRef.current.addFeature(feature);
+      } catch { /* skip invalid footprint */ }
     });
   }, [results]);
 
   useEffect(() => {
     const ol = window.ol;
-    if (!ol || !layerRef.current) return;
-    const map = mapInstance.current;
-    if (!map) return;
+    if (!ol || !layerRef.current || !map) return;
 
     if (results.length > 0) {
       if (!map.getLayers().getArray().includes(layerRef.current)) {
@@ -732,11 +735,10 @@ function ArchivalResultsLayer({ results, hoveredId, pinnedIds, onHover, onToggle
         map.removeLayer(layerRef.current);
       }
     }
-  }, [results]);
+  }, [results, map]);
 
   useEffect(() => {
     const ol = window.ol;
-    const map = mapInstance.current;
     if (!ol || !map) return;
 
     const handlePointerMove = (e) => {
@@ -755,11 +757,10 @@ function ArchivalResultsLayer({ results, hoveredId, pinnedIds, onHover, onToggle
       map.un('pointermove', handlePointerMove);
       map.un('click', handleClick);
     };
-  }, [onHover, onTogglePin]);
+  }, [map, onHover, onTogglePin]);
 
   useEffect(() => {
     const ol = window.ol;
-    const map = mapInstance.current;
     if (!ol || !map) return;
 
     if (labelRef.current) {
@@ -781,7 +782,7 @@ function ArchivalResultsLayer({ results, hoveredId, pinnedIds, onHover, onToggle
     const overlay = new ol.Overlay({ position: centroid, element: div, positioning: 'bottom-center' });
     map.addOverlay(overlay);
     labelRef.current = overlay;
-  }, [hoveredId, pinnedIds]);
+  }, [map, hoveredId, pinnedIds]);
 
   return null;
 }

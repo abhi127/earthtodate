@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, BadGatewayException } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
 import { VendorSearchParams } from './adapters/vendor.adapter.interface';
 
@@ -19,10 +19,10 @@ export class VendorsController {
     } catch (e: any) {
       const message = e.message || '';
       if (message.includes('VENDOR_AUTH_ERROR')) {
-        return { error: 'VENDOR_AUTH_ERROR', results: [] };
+        throw new BadGatewayException({ error: 'VENDOR_AUTH_ERROR', results: [] });
       }
       if (message.includes('VENDOR_UNAVAILABLE')) {
-        return { error: 'VENDOR_UNAVAILABLE', results: [] };
+        throw new BadGatewayException({ error: 'VENDOR_UNAVAILABLE', results: [] });
       }
       throw e;
     }

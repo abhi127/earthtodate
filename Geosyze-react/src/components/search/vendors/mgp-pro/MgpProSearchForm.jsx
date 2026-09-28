@@ -24,7 +24,8 @@ export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
     setAoiMode('draw');
     setAoiError('');
     mapRef.current.activateDraw('polygon');
-  }, [mapRef]);
+    mapRef.current.onDrawComplete(handleDrawComplete);
+  }, [mapRef, handleDrawComplete]);
 
   const handleUseView = useCallback(() => {
     if (!mapRef?.current) return;
