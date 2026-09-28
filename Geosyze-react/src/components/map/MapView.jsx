@@ -842,11 +842,11 @@ function ArchivalPreviewLayer({ map, results, previewIds }) {
       if (!result?.previewUrl) continue;
       try {
         const proxyUrl = `/api/vendors/mgp-pro/browse?url=${encodeURIComponent(result.previewUrl)}`;
-        // Note: GeoTIFF is a DataTile source — it must be used with a
-        // Tile layer, not an Image layer (Image renderer requires
-        // getImage(), which DataTile sources don't implement).
+        // Note: GeoTIFF is a DataTile source — it requires the WebGLTile
+        // layer renderer (Canvas tile/image renderers cannot draw raw
+        // array tile data).
         const source = new ol.source.GeoTIFF({ sources: [{ url: proxyUrl }] });
-        const layer = new ol.layer.Tile({ source, opacity: 1 });
+        const layer = new ol.layer.WebGLTile({ source, opacity: 1 });
         layer.set('inspectorName', `Preview: ${result.title}`);
         layer.set('inspectorCategory', 'Archival');
         layer.set('resultId', id);
