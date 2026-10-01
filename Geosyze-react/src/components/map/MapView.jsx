@@ -854,7 +854,7 @@ function ArchivalResultsLayer({ map, results, hoveredId, pinnedIds, onHover, onT
 }
 
 function ArchivalPreviewLayer({ map, results, previewIds }) {
-  const layersRef = useRef(new Map()); // resultId -> ol.layer.Image
+  const layersRef = useRef(new Map()); // resultId -> preview layer (Image or WebGLTile)
 
   useEffect(() => {
     const ol = window.ol;
@@ -876,17 +876,36 @@ function ArchivalPreviewLayer({ map, results, previewIds }) {
       const result = byId.get(id);
       if (!result?.previewUrl) continue;
       try {
-        const proxyUrl = `/api/vendors/mgp-pro/browse?url=${encodeURIComponent(result.previewUrl)}`;
-        // Note: GeoTIFF is a DataTile source — it requires the WebGLTile
-        // layer renderer (Canvas tile/image renderers cannot draw raw
-        // array tile data). MGP browse images are JPEG-compressed YCbCr,
-        // so convertToRGB is needed to display true colors instead of
-        // raw Y/Cb/Cr mapped to R/G/B (red cast).
-        const source = new ol.source.GeoTIFF({
-          sources: [{ url: proxyUrl }],
-          convertToRGB: true,
-        });
-        const layer = new ol.layer.WebGLTile({ source, opacity: 1 });
+        const proxyUrl = `/api/vendors/${result.vendor || 'mgp-pro'}/browse?url=${encodeURIComponent(result.previewUrl)}`;
+        const viewProj = map.getView().getProjection();
+        let layer;
+        if (/\.(png|jpe?g|webp)(\?|$)/i.test(result.previewUrl)) {
+          // Displayable raster (e.g. BlackSky PNG browse): overlay at the
+          // footprint's bbox extent. No footprint → can't place it.
+          if (!result.footprint) continue;
+          const format = new ol.format.GeoJSON();
+          const geometry = format.readGeometry(result.footprint, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: viewProj,
+          });
+          const source = new ol.source.ImageStatic({
+            url: proxyUrl,
+            imageExtent: geometry.getExtent(),
+            projection: viewProj,
+          });
+          layer = new ol.layer.Image({ source, opacity: 1 });
+        } else {
+          // Note: GeoTIFF is a DataTile source — it requires the WebGLTile
+          // layer renderer (Canvas tile/image renderers cannot draw raw
+          // array tile data). MGP browse images are JPEG-compressed YCbCr,
+          // so convertToRGB is needed to display true colors instead of
+          // raw Y/Cb/Cr mapped to R/G/B (red cast).
+          const source = new ol.source.GeoTIFF({
+            sources: [{ url: proxyUrl }],
+            convertToRGB: true,
+          });
+          layer = new ol.layer.WebGLTile({ source, opacity: 1 });
+        }
         layer.set('inspectorName', `Preview: ${result.title}`);
         layer.set('inspectorCategory', 'Archival');
         layer.set('resultId', id);

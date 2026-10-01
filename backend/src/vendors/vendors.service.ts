@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { VendorAdapter, VendorSearchParams, VendorSearchResult } from './adapters/vendor.adapter.interface';
 import { MgpProAdapter } from './adapters/mgp-pro.adapter';
+import { BlackSkyAdapter } from './adapters/blacksky.adapter';
 
 @Injectable()
 export class VendorsService {
@@ -8,6 +9,7 @@ export class VendorsService {
 
   constructor() {
     this.register(new MgpProAdapter());
+    this.register(new BlackSkyAdapter());
   }
 
   register(adapter: VendorAdapter): void {

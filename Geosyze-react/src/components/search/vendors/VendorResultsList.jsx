@@ -1,6 +1,6 @@
-import styles from './MgpProResultsList.module.css';
+import styles from './VendorResultsList.module.css';
 
-export default function MgpProResultsList({ results, hoveredId, pinnedIds, previewIds, onHover, onTogglePin, onTogglePreview, onOpenDetail }) {
+export default function VendorResultsList({ results, hoveredId, pinnedIds, previewIds, onHover, onTogglePin, onTogglePreview, onOpenDetail }) {
   return (
     <div className={styles.list}>
       {results.map(r => {

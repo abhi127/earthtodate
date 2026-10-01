@@ -1,9 +1,16 @@
-import MgpProSearchForm from './mgp-pro/MgpProSearchForm';
+import VendorSearchForm from './VendorSearchForm';
 
+// Both vendors currently share the generic AOI/date/cloud search form
+// (collections are backend-owned config). If a vendor needs bespoke
+// filters later, add a vendor-specific form here.
 const VENDOR_COMPONENTS = {
   'mgp-pro': {
-    displayName: 'MGP Pro (Maxar)',
-    SearchForm: MgpProSearchForm,
+    displayName: 'MGP Pro',
+    SearchForm: VendorSearchForm,
+  },
+  'blacksky': {
+    displayName: 'BlackSky',
+    SearchForm: VendorSearchForm,
   },
 };
 

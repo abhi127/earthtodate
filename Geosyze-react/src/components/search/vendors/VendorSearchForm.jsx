@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import styles from './MgpProSearchForm.module.css';
+import styles from './VendorSearchForm.module.css';
 
-export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
+export default function VendorSearchForm({ mapRef, onSearch, loading }) {
   const [aoiMode, setAoiMode] = useState(null);
   const [aoi, setAoi] = useState(null);
   const [aoiError, setAoiError] = useState('');

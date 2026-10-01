@@ -1,4 +1,4 @@
-import styles from './MgpProResultDetail.module.css';
+import styles from './VendorResultDetail.module.css';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -7,7 +7,7 @@ function formatDate(iso) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function MgpProResultDetail({ result, onClose }) {
+export default function VendorResultDetail({ result, onClose }) {
   const entries = Object.entries(result.rawProperties || {});
   // Only render <img> for browser-displayable formats; GeoTIFF browse
   // images are shown on the map via the Preview button instead.

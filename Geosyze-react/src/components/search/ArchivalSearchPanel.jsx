@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
-import { getVendorComponent } from './vendors/VendorRegistry';
-import MgpProResultsList from './vendors/mgp-pro/MgpProResultsList';
-import MgpProResultDetail from './vendors/mgp-pro/MgpProResultDetail';
+import { getVendorComponent, getVendorList } from './vendors/VendorRegistry';
+import VendorResultsList from './vendors/VendorResultsList';
+import VendorResultDetail from './vendors/VendorResultDetail';
 import styles from './ArchivalSearchPanel.module.css';
 
 export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, hoveredId, pinnedIds, previewIds, onHover, onTogglePin, onClearPins, onTogglePreview }) {
+  const [vendorId, setVendorId] = useState('mgp-pro');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +22,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
     setFiltersOpen(false);
     onResultsChange?.([]);
     try {
-      const res = await fetch('/api/vendors/mgp-pro/search', {
+      const res = await fetch(`/api/vendors/${vendorId}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
@@ -38,13 +39,39 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [vendorId, onClearPins, onResultsChange]);
 
-  const vendor = getVendorComponent('mgp-pro');
+  const handleVendorSwitch = useCallback((id) => {
+    setVendorId(id);
+    setResults([]);
+    setError('');
+    setDetailResult(null);
+    setHasSearched(false);
+    setFiltersOpen(true);
+    onClearPins?.();
+    onResultsChange?.([]);
+  }, [onClearPins, onResultsChange]);
+
+  const vendor = getVendorComponent(vendorId);
   const SearchForm = vendor?.SearchForm;
 
   return (
     <div className={styles.panel}>
+      <div className={styles.vendorTabs} role="tablist" aria-label="Archive vendors">
+        {getVendorList().map(v => (
+          <button
+            key={v.id}
+            type="button"
+            role="tab"
+            aria-selected={vendorId === v.id}
+            className={`${styles.vendorTab} ${vendorId === v.id ? styles.vendorTabActive : ''}`}
+            onClick={() => handleVendorSwitch(v.id)}
+          >
+            {v.displayName}
+          </button>
+        ))}
+      </div>
+
       {hasSearched && (
         <button
           type="button"
@@ -75,7 +102,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
 
       {!loading && results.length > 0 && (
         <div className={styles.resultsWrap}>
-          <MgpProResultsList
+          <VendorResultsList
             results={results}
             hoveredId={hoveredId}
             pinnedIds={pinnedIds || []}
@@ -89,7 +116,7 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
       )}
 
       {detailResult && (
-        <MgpProResultDetail result={detailResult} onClose={() => setDetailResult(null)} />
+        <VendorResultDetail result={detailResult} onClose={() => setDetailResult(null)} />
       )}
     </div>
   );
