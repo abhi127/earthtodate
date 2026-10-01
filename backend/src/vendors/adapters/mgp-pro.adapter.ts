@@ -62,8 +62,12 @@ export class MgpProAdapter implements VendorAdapter {
       searchParams.set('datetime', `${params.dateRange.start}/${params.dateRange.end}`);
     }
 
-    if (params.collections?.length) {
-      searchParams.set('collections', params.collections.join(','));
+    // Collections are backend-owned config (MGP_COLLECTIONS, comma-separated).
+    // Frontend-supplied collections are intentionally ignored. Unset/empty
+    // means search all collections (param omitted).
+    const configured = this.resolveCollections();
+    if (configured.length) {
+      searchParams.set('collections', configured.join(','));
     }
 
     if (params.cloudMax != null) {
@@ -75,6 +79,13 @@ export class MgpProAdapter implements VendorAdapter {
     searchParams.set('limit', '50');
 
     return `${MGP_BASE_URL}/catalogs/imagery/search?${searchParams.toString()}`;
+  }
+
+  private resolveCollections(): string[] {
+    return (process.env.MGP_COLLECTIONS || '')
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
   }
 
   private normalizeFeature(feature: any): VendorSearchResult {

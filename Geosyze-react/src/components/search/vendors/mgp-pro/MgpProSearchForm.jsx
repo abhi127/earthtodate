@@ -1,15 +1,6 @@
 import { useState, useCallback } from 'react';
 import styles from './MgpProSearchForm.module.css';
 
-const COLLECTIONS = [
-  { id: 'wv01', label: 'WV01' },
-  { id: 'wv02', label: 'WV02' },
-  { id: 'wv03', label: 'WV03' },
-  { id: 'wv04', label: 'WV04' },
-  { id: 'ge01', label: 'GE01' },
-  { id: 'qb02', label: 'QB02' },
-];
-
 export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
   const [aoiMode, setAoiMode] = useState(null);
   const [aoi, setAoi] = useState(null);
@@ -17,7 +8,6 @@ export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
   const [dateStart, setDateStart] = useState('2025-01-01');
   const [dateEnd, setDateEnd] = useState('2025-12-31');
   const [cloudMax, setCloudMax] = useState(20);
-  const [collections, setCollections] = useState(['wv02', 'wv03']);
 
   const handleDrawComplete = useCallback((feature) => {
     const geom = feature?.geometry;
@@ -50,21 +40,15 @@ export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
     setAoiError('');
   }, [mapRef]);
 
-  const handleCollectionToggle = (id) => {
-    setCollections(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!aoi) {
       setAoiError('Draw a polygon or use current view');
       return;
     }
-    if (collections.length === 0) {
-      setAoiError('Select at least one collection');
-      return;
-    }
-    onSearch({ aoi, dateRange: { start: dateStart, end: dateEnd }, cloudMax, collections });
+    // Collections are backend-owned config (MGP_COLLECTIONS) — the search
+    // is universal across whatever the backend is configured for.
+    onSearch({ aoi, dateRange: { start: dateStart, end: dateEnd }, cloudMax });
   };
 
   return (
@@ -97,18 +81,6 @@ export default function MgpProSearchForm({ mapRef, onSearch, loading }) {
       <div className={styles.section}>
         <label className={styles.label}>Max Cloud Cover: {cloudMax}%</label>
         <input type="range" min="0" max="100" value={cloudMax} onChange={e => setCloudMax(Number(e.target.value))} className={styles.slider} />
-      </div>
-
-      <div className={styles.section}>
-        <label className={styles.label}>Collections</label>
-        <div className={styles.checkboxRow}>
-          {COLLECTIONS.map(c => (
-            <label key={c.id} className={styles.checkbox}>
-              <input type="checkbox" checked={collections.includes(c.id)} onChange={() => handleCollectionToggle(c.id)} />
-              {c.label}
-            </label>
-          ))}
-        </div>
       </div>
 
       <button type="submit" className={styles.searchBtn} disabled={loading}>

@@ -81,32 +81,6 @@
   width: 100%;
   accent-color: var(--primary, #22C55E);
 }
-.checkboxRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.72rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--surfaceAlt, #334155);
-  border: 1px solid var(--border, #334155);
-  border-radius: 0.25rem;
-  cursor: pointer;
-  color: var(--textMuted, #94A3B8);
-  transition: color 0.15s, border-color 0.15s;
-}
-.checkbox:has(input:checked) {
-  color: var(--text, #F8FAFC);
-  border-color: var(--primary, #22C55E);
-}
-.checkbox input {
-  accent-color: var(--primary, #22C55E);
-  margin: 0;
-}
 .searchBtn {
   padding: 0.5rem 0.75rem;
   border: none;

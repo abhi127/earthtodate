@@ -87,6 +87,7 @@ describe('MgpProAdapter', () => {
 
   it('sends maxar-api-key header and correct STAC params', async () => {
     process.env.MGP_API_KEY = 'secret-key';
+    process.env.MGP_COLLECTIONS = 'wv02';
     const fetchMock = jest.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 })) as unknown as typeof fetch;
     globalThis.fetch = fetchMock;
 
@@ -95,7 +96,6 @@ describe('MgpProAdapter', () => {
       aoi: { type: 'BBox', bbox: [77.0, 28.0, 77.3, 28.3] },
       dateRange: { start: '2025-01-01', end: '2025-12-31' },
       cloudMax: 15,
-      collections: ['wv02'],
     });
 
     const mock = fetchMock as unknown as jest.Mock;
@@ -107,6 +107,52 @@ describe('MgpProAdapter', () => {
     expect(String(url)).toContain('filter=eo%3Acloud_cover+%3C+15');
     expect(String(url)).toContain('area-based-calc=true');
     expect((init as any).headers['maxar-api-key']).toBe('secret-key');
+  });
+
+  it('uses MGP_COLLECTIONS env as the collections filter', async () => {
+    process.env.MGP_API_KEY = 'test-key';
+    process.env.MGP_COLLECTIONS = 'wv02, wv03';
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    const adapter = new MgpProAdapter(fetchMock);
+    await adapter.search({ aoi: { type: 'BBox', bbox: [77.0, 28.0, 77.3, 28.3] } });
+
+    const mock = fetchMock as unknown as jest.Mock;
+    const [url] = mock.mock.calls[0];
+    expect(String(url)).toContain('collections=wv02%2Cwv03');
+  });
+
+  it('omits collections param when MGP_COLLECTIONS is unset', async () => {
+    process.env.MGP_API_KEY = 'test-key';
+    delete process.env.MGP_COLLECTIONS;
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    const adapter = new MgpProAdapter(fetchMock);
+    await adapter.search({ aoi: { type: 'BBox', bbox: [77.0, 28.0, 77.3, 28.3] } });
+
+    const mock = fetchMock as unknown as jest.Mock;
+    const [url] = mock.mock.calls[0];
+    expect(String(url)).not.toContain('collections=');
+  });
+
+  it('ignores frontend-supplied collections in favor of backend config', async () => {
+    process.env.MGP_API_KEY = 'test-key';
+    process.env.MGP_COLLECTIONS = 'ge01';
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 })) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    const adapter = new MgpProAdapter(fetchMock);
+    await adapter.search({
+      aoi: { type: 'BBox', bbox: [77.0, 28.0, 77.3, 28.3] },
+      collections: ['wv02'],
+    });
+
+    const mock = fetchMock as unknown as jest.Mock;
+    const [url] = mock.mock.calls[0];
+    expect(String(url)).toContain('collections=ge01');
+    expect(String(url)).not.toContain('wv02');
   });
 
   it('falls back to whole-strip values when area-based values are missing', async () => {

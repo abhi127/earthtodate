@@ -55,7 +55,7 @@
   background: none;
   border: none;
   font-size: 0.82rem;
-  color: var(--textMuted, #94A3B8);
+  color: var(--text, #F8FAFC);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
 }
