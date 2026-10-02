@@ -44,6 +44,10 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+.aoiBtnActive {
+  border-color: var(--primary, #22C55E);
+  color: var(--primary, #22C55E);
+}
 .aoiInfo {
   font-size: 0.7rem;
   color: var(--primary, #22C55E);

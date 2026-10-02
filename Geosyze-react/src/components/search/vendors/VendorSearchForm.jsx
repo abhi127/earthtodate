@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import JSZip from 'jszip';
+import { defaultArchiveRange } from './archiveDefaults.js';
 import styles from './VendorSearchForm.module.css';
 
 // AOI helpers: everything normalizes to a 2D GeoJSON Polygon in EPSG:4326.
@@ -101,22 +102,25 @@ export default function VendorSearchForm({ mapRef, onSearch, loading }) {
   const [aoiMode, setAoiMode] = useState(null);
   const [aoi, setAoi] = useState(null);
   const [aoiError, setAoiError] = useState('');
-  const [dateStart, setDateStart] = useState('2025-01-01');
-  const [dateEnd, setDateEnd] = useState('2025-12-31');
+  // Defaults: end = today, start = one calendar month earlier.
+  const [dateStart, setDateStart] = useState(() => defaultArchiveRange().start);
+  const [dateEnd, setDateEnd] = useState(() => defaultArchiveRange().end);
   const [cloudMax, setCloudMax] = useState(20);
   const [importing, setImporting] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const fileRef = useRef(null);
 
   const usePolygonAoi = useCallback((coordinates, mode) => {
     setAoi({ type: 'Polygon', coordinates });
     setAoiMode(mode);
     setAoiError('');
-    mapRef.current?.addAoiFeature?.({ type: 'Feature', geometry: { type: 'Polygon', coordinates }, properties: {} });
+    mapRef.current?.addArchivalAoiFeature?.({ type: 'Feature', geometry: { type: 'Polygon', coordinates }, properties: {} });
     const bbox = bboxOfPolygon(coordinates);
     mapRef.current?.flyTo?.([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], 11);
   }, [mapRef]);
 
   const handleDrawComplete = useCallback((feature) => {
+    setDrawing(false);
     const geom = feature?.geometry;
     if (geom?.type === 'Polygon' && geom.coordinates?.[0]?.length >= 4) {
       setAoi({ type: 'Polygon', coordinates: geom.coordinates });
@@ -127,13 +131,20 @@ export default function VendorSearchForm({ mapRef, onSearch, loading }) {
     }
   }, []);
 
+  // Archival drawing uses the panel-owned AOI layer (not the shared drawing
+  // tools), so no draw pill appears and panel close can clear just this AOI.
+  // Clicking again while drawing cancels.
   const handleDrawPolygon = useCallback(() => {
     if (!mapRef?.current) return;
-    setAoiMode('draw');
+    if (drawing) {
+      mapRef.current.cancelArchivalDraw?.();
+      setDrawing(false);
+      return;
+    }
     setAoiError('');
-    mapRef.current.activateDraw('polygon');
-    mapRef.current.onDrawComplete(handleDrawComplete);
-  }, [mapRef, handleDrawComplete]);
+    mapRef.current.activateArchivalDraw?.(handleDrawComplete);
+    setDrawing(true);
+  }, [mapRef, drawing, handleDrawComplete]);
 
   const handleUseView = useCallback(() => {
     if (!mapRef?.current) return;
@@ -190,8 +201,12 @@ export default function VendorSearchForm({ mapRef, onSearch, loading }) {
       <div className={styles.section}>
         <label className={styles.label}>Area of Interest</label>
         <div className={styles.aoiButtons}>
-          <button type="button" className={styles.aoiBtn} onClick={handleDrawPolygon} disabled={loading || importing} title="Draw polygon" aria-label="Draw polygon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><polygon points="12 2 22 8.5 18 22 6 22 2 8.5" /></svg>
+          <button type="button" className={`${styles.aoiBtn} ${drawing ? styles.aoiBtnActive : ''}`} onClick={handleDrawPolygon} disabled={loading || importing} title={drawing ? 'Cancel drawing' : 'Draw polygon'} aria-label={drawing ? 'Cancel drawing' : 'Draw polygon'}>
+            {drawing ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><polygon points="12 2 22 8.5 18 22 6 22 2 8.5" /></svg>
+            )}
           </button>
           <button type="button" className={styles.aoiBtn} onClick={handleUseView} disabled={loading || importing} title="Use current view" aria-label="Use current view">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /></svg>

@@ -49,6 +49,8 @@ const MapView = forwardRef(function MapView({
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const vectorSource = useRef(null);
+  const archivalAoiSource = useRef(null);
+  const archivalDrawRef = useRef(null);
   const basemapRefs = useRef({});
   const drawInteractionRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
@@ -96,9 +98,23 @@ const MapView = forwardRef(function MapView({
     vectorLayer.set('inspectorName', 'Drawn features');
     vectorLayer.set('inspectorCategory', 'Vector');
 
+    // Dedicated archival-search AOI layer, independent of the shared
+    // drawing tools: the archive panel draws/searches here, and closing
+    // the panel clears exactly this layer without touching user drawings.
+    archivalAoiSource.current = new ol.source.Vector();
+    const archivalAoiLayer = new ol.layer.Vector({
+      source: archivalAoiSource.current,
+      style: new ol.style.Style({
+        fill: new ol.style.Fill({ color: 'rgba(56, 189, 248, 0.12)' }),
+        stroke: new ol.style.Stroke({ color: '#38bdf8', width: 2, lineDash: [8, 6] }),
+      }),
+    });
+    archivalAoiLayer.set('inspectorName', 'Archival AOI');
+    archivalAoiLayer.set('inspectorCategory', 'Archival');
+
     const map = new ol.Map({
       target: mapRef.current,
-      layers: [layers.osm, layers.satellite, layers.terrain, layers.light, layers.streets, layers.dark, layers.sentinel, vectorLayer],
+      layers: [layers.osm, layers.satellite, layers.terrain, layers.light, layers.streets, layers.dark, layers.sentinel, vectorLayer, archivalAoiLayer],
       view: new ol.View({
         center: ol.proj.fromLonLat([78.9629, 20.5937]),
         zoom: 5,
@@ -166,6 +182,15 @@ const MapView = forwardRef(function MapView({
     setPillExportOpen(false);
   }, []);
 
+  // Cancel an in-progress archival-AOI draw (its interaction is separate
+  // from the shared drawing tools).
+  const cancelArchivalDraw = useCallback(() => {
+    if (archivalDrawRef.current && mapInstance.current) {
+      mapInstance.current.removeInteraction(archivalDrawRef.current);
+      archivalDrawRef.current = null;
+    }
+  }, []);
+
   // ── main export dispatcher ──────────────────────────────────────────
   const exportFeatures = useCallback((format) => {
     const ol = window.ol;
@@ -228,37 +253,57 @@ const MapView = forwardRef(function MapView({
       return [min[0], min[1], max[0], max[1]];
     },
 
-    addAoiFeature(feature4326) {
+    addArchivalAoiFeature(feature4326) {
       const ol = window.ol;
       const map = mapInstance.current;
-      if (!ol || !map || !vectorSource.current || !feature4326?.geometry) return false;
+      if (!ol || !map || !archivalAoiSource.current || !feature4326?.geometry) return false;
       try {
         const format = new ol.format.GeoJSON();
         const feature = format.readFeature(feature4326, {
           dataProjection: 'EPSG:4326',
           featureProjection: map.getView().getProjection(),
         });
-        vectorSource.current.addFeature(feature);
+        archivalAoiSource.current.addFeature(feature);
         return true;
       } catch {
         return false;
       }
     },
 
-    onDrawComplete(callback) {
+    // Dedicated archival-AOI draw: uses the panel-owned source/layer (not
+    // the shared drawing tools), keeps a single AOI, and reports the
+    // finished polygon as EPSG:4326 GeoJSON. No draw pill is shown.
+    activateArchivalDraw(onComplete) {
+      cancelMeasureRef.current?.();
+      cancelArchivalDraw();
       const ol = window.ol;
-      const map = mapInstance.current;
-      if (!ol || !map) return;
-      const draw = drawInteractionRef.current;
-      if (!draw) return;
-      draw.on('drawend', (e) => {
-        const format = new ol.format.GeoJSON();
-        const geojson = format.writeFeature(e.feature, {
-          dataProjection: 'EPSG:4326',
-          featureProjection: map.getView().getProjection(),
-        });
-        callback(JSON.parse(geojson));
+      if (!ol || !mapInstance.current || !archivalAoiSource.current) return;
+      archivalAoiSource.current.clear();
+      const draw = new ol.interaction.Draw({
+        source: archivalAoiSource.current,
+        type: 'Polygon',
       });
+      draw.on('drawend', (e) => {
+        try {
+          const format = new ol.format.GeoJSON();
+          const geojson = format.writeFeature(e.feature, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: mapInstance.current.getView().getProjection(),
+          });
+          onComplete?.(JSON.parse(geojson));
+        } finally {
+          cancelArchivalDraw();
+        }
+      });
+      archivalDrawRef.current = draw;
+      mapInstance.current.addInteraction(draw);
+    },
+
+    cancelArchivalDraw,
+
+    clearArchivalAoi() {
+      cancelArchivalDraw();
+      if (archivalAoiSource.current) archivalAoiSource.current.clear();
     },
   }));
 
@@ -558,7 +603,7 @@ const MapView = forwardRef(function MapView({
 
   // Clean up draw/measure when entering compare mode (from any toggle source)
   useEffect(() => {
-    if (hasExtras) { cancelMeasureRef.current?.(); deactivateDraw(); }
+    if (hasExtras) { cancelMeasureRef.current?.(); deactivateDraw(); cancelArchivalDraw(); }
   }, [hasExtras]);
 
   // Call updateSize when compare mode changes (map container resizes)

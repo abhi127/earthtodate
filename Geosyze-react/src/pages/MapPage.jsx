@@ -125,9 +125,11 @@ export default function MapPage() {
     setPreviewResultIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
 
-  // Clean up all archival layers (footprints, previews, labels) when the
-  // archive panel closes or the user switches to another panel. Clearing
-  // the state drives each map layer's own removal logic.
+  // Clean up all archival layers (footprints, previews, labels) and the
+  // panel-owned AOI drawing when the archive panel closes or the user
+  // switches to another panel. Clearing the state drives each map layer's
+  // own removal logic; the AOI is cleared imperatively since it lives in
+  // its own draw source outside React state.
   const prevPanelRef = useRef(activePanel);
   useEffect(() => {
     if (prevPanelRef.current === 'archive' && activePanel !== 'archive') {
@@ -135,6 +137,7 @@ export default function MapPage() {
       setPinnedResultIds([]);
       setPreviewResultIds([]);
       setHoveredResultId(null);
+      mapRef.current?.clearArchivalAoi?.();
     }
     prevPanelRef.current = activePanel;
   }, [activePanel]);
