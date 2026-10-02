@@ -185,14 +185,16 @@ export default function VendorSearchForm({ mapRef, onSearch, loading }) {
       <div className={styles.section}>
         <label className={styles.label}>Area of Interest</label>
         <div className={styles.aoiButtons}>
-          <button type="button" className={styles.aoiBtn} onClick={handleDrawPolygon} disabled={loading || importing}>
-            Draw Polygon
+          <button type="button" className={styles.aoiBtn} onClick={handleDrawPolygon} disabled={loading || importing} title="Draw polygon" aria-label="Draw polygon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><polygon points="12 2 22 8.5 18 22 6 22 2 8.5" /></svg>
           </button>
-          <button type="button" className={styles.aoiBtn} onClick={handleUseView} disabled={loading || importing}>
-            Use Current View
+          <button type="button" className={styles.aoiBtn} onClick={handleUseView} disabled={loading || importing} title="Use current view" aria-label="Use current view">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /></svg>
           </button>
-          <button type="button" className={styles.aoiBtn} onClick={() => fileRef.current?.click()} disabled={loading || importing}>
-            {importing ? 'Reading…' : 'Import File'}
+          <button type="button" className={styles.aoiBtn} onClick={() => fileRef.current?.click()} disabled={loading || importing} title="Import file (.geojson, .kml, shapefile .zip)" aria-label="Import file">
+            {importing ? '…' : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><polyline points="6 9 12 3 18 9" /><path d="M4 21h16" /></svg>
+            )}
           </button>
           <input
             ref={fileRef}
