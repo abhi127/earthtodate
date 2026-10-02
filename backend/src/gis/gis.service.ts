@@ -67,6 +67,60 @@ export class GisService {
     return this.repo.save(layer);
   }
 
+  // The `shapefile` package is CJS: depending on module interop,
+  // `import()` may expose the parser as a named `open` export or nested
+  // under `default`. Resolve whichever shape we get.
+  private async openShapefileLib(): Promise<(shpPath: string) => Promise<any>> {
+    const lib: any = await import('shapefile');
+    const open = lib.open || lib.default?.open || lib.default;
+    if (typeof open !== 'function') throw new Error('shapefile parser unavailable');
+    return open;
+  }
+
+  /**
+   * Parse uploaded Shapefile parts to GeoJSON WITHOUT persisting anything:
+   * no layer record, temp files always deleted. Used for throwaway inputs
+   * like search AOIs. .prj is optional (WGS84 assumed when absent).
+   */
+  async parseShapefile(files: Express.Multer.File[]): Promise<Record<string, any>> {
+    const extensions = files.map((f) => path.extname(f.originalname).toLowerCase());
+    const required = ['.shp', '.shx', '.dbf'];
+    const missing = required.filter((ext) => !extensions.includes(ext));
+
+    if (missing.length > 0) {
+      await Promise.all(files.map((f) => fsp.unlink(f.path).catch(() => {})));
+      throw new BadRequestException(
+        `Missing required Shapefile components: ${missing.join(', ')}`,
+      );
+    }
+
+    try {
+      const openShapefile = await this.openShapefileLib();
+      const shpFile = files.find((f) => path.extname(f.originalname).toLowerCase() === '.shp')!;
+
+      const source = await openShapefile(shpFile.path);
+      const features: Record<string, any>[] = [];
+      let result = await source.read();
+      while (!result.done) {
+        features.push(result.value);
+        result = await source.read();
+      }
+
+      const geojson: Record<string, any> = {
+        type: 'FeatureCollection',
+        features,
+      };
+
+      this.sanitizeGeoJson(geojson);
+      return geojson;
+    } catch (err: any) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException(`Failed to parse Shapefile: ${err.message}`);
+    } finally {
+      await Promise.all(files.map((f) => fsp.unlink(f.path).catch(() => {})));
+    }
+  }
+
   async uploadShapefile(
     files: Express.Multer.File[],
     dto: CreateLayerDto,
@@ -86,7 +140,7 @@ export class GisService {
     try {
       // ponytail: using dynamic import for shapefile parser
       // postgres+postgis upgrade: store raw shapefile + convert to geometry column
-      const { default: openShapefile } = await import('shapefile');
+      const openShapefile = await this.openShapefileLib();
       const shpFile = files.find((f) => path.extname(f.originalname).toLowerCase() === '.shp')!;
 
       const source = await openShapefile(shpFile.path);

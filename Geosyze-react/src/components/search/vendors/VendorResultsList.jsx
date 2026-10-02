@@ -8,15 +8,20 @@ export default function VendorResultsList({ results, hoveredId, pinnedIds, previ
         const isPinned = pinnedIds.includes(r.id);
         const isPreviewing = previewIds.includes(r.id);
         const hasPreview = !!r.previewUrl;
+        const badgeClass = r.vendor === 'blacksky' ? styles.badgeBsk : styles.badgeMgp;
+        const badgeLabel = r.vendor === 'blacksky' ? 'BSK' : r.vendor === 'mgp-pro' ? 'MGP' : (r.vendor || '?').slice(0, 3).toUpperCase();
         return (
           <div
-            key={r.id}
+            key={`${r.vendor}:${r.id}`}
             className={`${styles.item} ${isHovered ? styles.hovered : ''} ${isPinned ? styles.pinned : ''}`}
             onMouseEnter={() => onHover(r.id)}
             onMouseLeave={() => onHover(null)}
           >
             <div className={styles.info}>
-              <span className={styles.title} title={r.title}>{r.title}</span>
+              <span className={styles.titleRow}>
+                <span className={styles.title} title={r.title}>{r.title}</span>
+                <span className={`${styles.vendorBadge} ${badgeClass}`} title={r.vendor}>{badgeLabel}</span>
+              </span>
               <span className={styles.date}>{formatDate(r.acquisitionDate)} · {r.sensor || '—'}</span>
               <div className={styles.metaRow}>
                 <div className={styles.metaGrid}>

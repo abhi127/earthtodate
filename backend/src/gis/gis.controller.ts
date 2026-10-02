@@ -76,6 +76,20 @@ export class GisController {
     return this.gisService.uploadShapefile(files, dto, userId);
   }
 
+  // Parse-only Shapefile endpoint: returns GeoJSON without creating a layer
+  // record. Open to any authenticated user (no role restriction) since the
+  // result is throwaway (e.g. search AOIs). Temp files are always deleted.
+  @Post('parse')
+  @UseInterceptors(FilesInterceptor('files', 4, multerOptions))
+  async parse(@UploadedFiles() files: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files uploaded');
+    }
+    // parseShapefile validates components, deletes temp files on all
+    // paths, and never touches the database.
+    return this.gisService.parseShapefile(files);
+  }
+
   @Get('layers')
   findAll(@CurrentUser() user: { id: string; role: string }) {
     return this.gisService.findAll(user.id, user.role);

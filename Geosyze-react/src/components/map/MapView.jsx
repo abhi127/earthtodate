@@ -228,6 +228,23 @@ const MapView = forwardRef(function MapView({
       return [min[0], min[1], max[0], max[1]];
     },
 
+    addAoiFeature(feature4326) {
+      const ol = window.ol;
+      const map = mapInstance.current;
+      if (!ol || !map || !vectorSource.current || !feature4326?.geometry) return false;
+      try {
+        const format = new ol.format.GeoJSON();
+        const feature = format.readFeature(feature4326, {
+          dataProjection: 'EPSG:4326',
+          featureProjection: map.getView().getProjection(),
+        });
+        vectorSource.current.addFeature(feature);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
     onDrawComplete(callback) {
       const ol = window.ol;
       const map = mapInstance.current;

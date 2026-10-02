@@ -1,14 +1,15 @@
 import { useState, useCallback } from 'react';
-import { getVendorComponent, getVendorList } from './vendors/VendorRegistry';
+import VendorSearchForm from './vendors/VendorSearchForm';
+import { getVendorComponent } from './vendors/VendorRegistry';
 import VendorResultsList from './vendors/VendorResultsList';
 import VendorResultDetail from './vendors/VendorResultDetail';
 import styles from './ArchivalSearchPanel.module.css';
 
 export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, hoveredId, pinnedIds, previewIds, onHover, onTogglePin, onClearPins, onTogglePreview }) {
-  const [vendorId, setVendorId] = useState('mgp-pro');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [warnings, setWarnings] = useState([]);
   const [detailResult, setDetailResult] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
@@ -16,13 +17,15 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
   const handleSearch = useCallback(async (params) => {
     setLoading(true);
     setError('');
+    setWarnings([]);
     setResults([]);
     onClearPins?.();
     setHasSearched(true);
     setFiltersOpen(false);
     onResultsChange?.([]);
     try {
-      const res = await fetch(`/api/vendors/${vendorId}/search`, {
+      // One combined search across all vendors — no vendor switching.
+      const res = await fetch('/api/vendors/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
@@ -33,45 +36,22 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
       } else {
         setResults(data.results || []);
         onResultsChange?.(data.results || []);
+        if (data.errors?.length) {
+          setWarnings(data.errors.map((e) => {
+            const name = getVendorComponent(e.vendor)?.displayName || e.vendor;
+            return `${name} unavailable — showing partial results`;
+          }));
+        }
       }
     } catch {
       setError('Network error — check connection');
     } finally {
       setLoading(false);
     }
-  }, [vendorId, onClearPins, onResultsChange]);
-
-  const handleVendorSwitch = useCallback((id) => {
-    setVendorId(id);
-    setResults([]);
-    setError('');
-    setDetailResult(null);
-    setHasSearched(false);
-    setFiltersOpen(true);
-    onClearPins?.();
-    onResultsChange?.([]);
   }, [onClearPins, onResultsChange]);
-
-  const vendor = getVendorComponent(vendorId);
-  const SearchForm = vendor?.SearchForm;
 
   return (
     <div className={styles.panel}>
-      <div className={styles.vendorTabs} role="tablist" aria-label="Archive vendors">
-        {getVendorList().map(v => (
-          <button
-            key={v.id}
-            type="button"
-            role="tab"
-            aria-selected={vendorId === v.id}
-            className={`${styles.vendorTab} ${vendorId === v.id ? styles.vendorTabActive : ''}`}
-            onClick={() => handleVendorSwitch(v.id)}
-          >
-            {v.displayName}
-          </button>
-        ))}
-      </div>
-
       {hasSearched && (
         <button
           type="button"
@@ -83,16 +63,17 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
         </button>
       )}
 
-      {(!hasSearched || filtersOpen) && SearchForm && (
-        <SearchForm mapRef={mapRef} onSearch={handleSearch} loading={loading} />
+      {(!hasSearched || filtersOpen) && (
+        <VendorSearchForm mapRef={mapRef} onSearch={handleSearch} loading={loading} />
       )}
 
       {error && <p className={styles.error}>{error}</p>}
+      {warnings.map((w, i) => <p key={i} className={styles.warning}>{w}</p>)}
 
       {loading && (
         <div className={styles.loading}>
           <div className={styles.spinner} />
-          <span>Searching archive…</span>
+          <span>Searching archives…</span>
         </div>
       )}
 

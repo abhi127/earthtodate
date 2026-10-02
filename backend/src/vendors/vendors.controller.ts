@@ -44,6 +44,22 @@ export class VendorsController {
     }
   }
 
+  @Post('search')
+  async searchAll(@Body() params: VendorSearchParams) {
+    // Combined fan-out across all vendors. Partial vendor failures are
+    // reported per vendor; only a total failure (no vendor reachable and
+    // no results) maps to 502 — auth misconfiguration maps to 502 as well
+    // so a missing key is never mistaken for empty coverage.
+    const { results, errors } = await this.vendorsService.searchAll(params);
+    if (results.length === 0 && errors.length > 0) {
+      if (errors.some((e) => e.error === 'VENDOR_AUTH_ERROR')) {
+        throw new BadGatewayException({ error: 'VENDOR_AUTH_ERROR', results: [] });
+      }
+      throw new BadGatewayException({ error: 'VENDOR_UNAVAILABLE', results: [] });
+    }
+    return { results, errors };
+  }
+
   @Post(':vendorId/search')
   async search(@Param('vendorId') vendorId: string, @Body() params: VendorSearchParams) {
     try {
