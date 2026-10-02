@@ -42,6 +42,19 @@
   color: var(--primary, #22C55E);
 }
 
+/* Vendor logos replace generic glyphs in the rail. Wordmarks are wide,
+   so they size by width and center. The currentColor SVG (Vantor) follows
+   the button color including the active state; the black PNG (BlackSky)
+   is inverted to read on the dark rail. */
+.railLogo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.railLogoInvert {
+  filter: invert(1);
+}
+
 /* ── Panel ──────────────────────────────────────────────────────────── */
 .panel {
   width: 300px;

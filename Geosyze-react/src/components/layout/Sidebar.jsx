@@ -37,7 +37,7 @@ const RAIL_ITEMS = [
   },
   {
     id: 'blacksky', label: 'BlackSky',
-    icon: <svg {...ICON}><path d="M12 2a10 10 0 1 0 10 10"/><circle cx="12" cy="12" r="3"/><path d="M17 3l4 4"/><path d="M21 3l-4 4"/></svg>,
+    icon: <img src="/vendors/blacksky.png" className={`${styles.railLogo} ${styles.railLogoInvert}`} alt="" />,
   },
   {
     id: 'earthdelhi', label: 'Earth Delhi',
@@ -45,7 +45,7 @@ const RAIL_ITEMS = [
   },
   {
     id: 'vantor', label: 'Vantor',
-    icon: <svg {...ICON}><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>,
+    icon: <img src="/vendors/vantor.svg" className={styles.railLogo} alt="" />,
   },
 ];
 
