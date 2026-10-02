@@ -47,19 +47,24 @@ function firstPolygonFromKml(text) {
   return null;
 }
 
-async function polygonFromShapeZip(file) {
+async function polygonFromZipArchive(file) {
   const zip = await JSZip.loadAsync(file);
-  const entries = Object.keys(zip.files);
-  const find = (ext) => entries.find((n) => n.toLowerCase().endsWith(ext) && !zip.files[n].dir);
+  const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+  // KMZ: a zip containing a .kml doc — parse it directly, no backend needed.
+  const kmlName = names.find((n) => n.toLowerCase().endsWith('.kml'));
+  if (kmlName) {
+    return firstPolygonFromKml(await zip.files[kmlName].async('text'));
+  }
+  const find = (ext) => names.find((n) => n.toLowerCase().endsWith(ext));
   const needed = ['.shp', '.shx', '.dbf'].map(find);
   if (needed.some((n) => !n)) {
-    throw new Error('Shapefile .zip must contain .shp, .shx and .dbf');
+    throw new Error('Zip must contain a .kml or shapefile parts (.shp, .shx, .dbf)');
   }
   const prj = find('.prj');
-  const names = [...needed, ...(prj ? [prj] : [])];
+  const parts = [...needed, ...(prj ? [prj] : [])];
 
   const form = new FormData();
-  for (const name of names) {
+  for (const name of parts) {
     const blob = await zip.files[name].async('blob');
     form.append('files', new File([blob], name.split('/').pop()));
   }
@@ -155,10 +160,10 @@ export default function VendorSearchForm({ mapRef, onSearch, loading }) {
         coordinates = firstPolygonFromGeoJson(JSON.parse(await file.text()));
       } else if (ext === 'kml') {
         coordinates = firstPolygonFromKml(await file.text());
-      } else if (ext === 'zip') {
-        coordinates = await polygonFromShapeZip(file);
+      } else if (ext === 'zip' || ext === 'kmz') {
+        coordinates = await polygonFromZipArchive(file);
       } else {
-        throw new Error('Unsupported file type. Use .geojson, .kml or a shapefile .zip');
+        throw new Error('Unsupported file type. Use .geojson, .kml, .kmz or a shapefile .zip');
       }
       if (!coordinates) throw new Error('No polygon found in file');
       usePolygonAoi(coordinates, 'file');
@@ -191,7 +196,7 @@ export default function VendorSearchForm({ mapRef, onSearch, loading }) {
           <button type="button" className={styles.aoiBtn} onClick={handleUseView} disabled={loading || importing} title="Use current view" aria-label="Use current view">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /></svg>
           </button>
-          <button type="button" className={styles.aoiBtn} onClick={() => fileRef.current?.click()} disabled={loading || importing} title="Import file (.geojson, .kml, shapefile .zip)" aria-label="Import file">
+          <button type="button" className={styles.aoiBtn} onClick={() => fileRef.current?.click()} disabled={loading || importing} title="Import file (.geojson, .kml, .kmz, shapefile .zip)" aria-label="Import file">
             {importing ? '…' : (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><polyline points="6 9 12 3 18 9" /><path d="M4 21h16" /></svg>
             )}
@@ -199,7 +204,7 @@ export default function VendorSearchForm({ mapRef, onSearch, loading }) {
           <input
             ref={fileRef}
             type="file"
-            accept=".geojson,.json,.kml,.zip"
+            accept=".geojson,.json,.kml,.kmz,.zip"
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
