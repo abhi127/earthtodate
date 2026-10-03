@@ -63,9 +63,12 @@ export default function ArchivalSearchPanel({ mapRef, onClose, onResultsChange, 
         </button>
       )}
 
-      {(!hasSearched || filtersOpen) && (
+      {/* The form stays mounted when collapsed (hidden via CSS) so the
+          AOI, dates and filters survive across searches. Unmounting here
+          would wipe the AOI and force re-drawing on every search. */}
+      <div className={!hasSearched || filtersOpen ? styles.formWrap : styles.formHidden}>
         <VendorSearchForm mapRef={mapRef} onSearch={handleSearch} loading={loading} />
-      )}
+      </div>
 
       {error && <p className={styles.error}>{error}</p>}
       {warnings.map((w, i) => <p key={i} className={styles.warning}>{w}</p>)}

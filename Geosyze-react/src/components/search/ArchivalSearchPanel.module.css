@@ -21,9 +21,14 @@
   cursor: pointer;
   flex-shrink: 0;
   transition: border-color 0.15s;
-}
-.filterToggle:hover {
+}.filterToggle:hover {
   border-color: var(--textMuted, #94A3B8);
+}
+.formWrap {
+  flex-shrink: 0;
+}
+.formHidden {
+  display: none;
 }
 .filterCount {
   font-size: 0.65rem;
