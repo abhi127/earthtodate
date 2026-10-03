@@ -3,7 +3,7 @@
 // when nothing qualifies, and to null when there are no dates (caller keeps
 // the current date).
 // Each entry is [dateStr 'YYYY-MM-DD', clouds] where clouds parses as float.
-export const MAX_DEFAULT_CLOUDS = 2;
+export const MAX_DEFAULT_CLOUDS = 5;
 
 export function pickBestDate(dates) {
   const qualifying = (dates || [])
