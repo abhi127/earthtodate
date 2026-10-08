@@ -316,22 +316,22 @@ export default function MapCompare({
       <div className={styles.comparePanel}>
         <div className={styles.comparePicker}>
           <span className={styles.compareLabel}>Map 1</span>
-          <select className={styles.compareSelect} value={leftBase} onChange={e => setLeftBase(e.target.value)}>
+          {/* <select className={styles.compareSelect} value={leftBase} onChange={e => setLeftBase(e.target.value)}>
             {BASEMAP_IDS.map(k => <option key={k} value={k}>{BASEMAP_NAMES[k]}</option>)}
-          </select>
+          </select> */}
         </div>
         {extraIds.map((id, pos) => (
           <div key={id} style={{ display: 'contents' }}>
             <div className={styles.compareDividerV} />
             <div className={styles.comparePicker}>
               <span className={styles.compareLabel}>Map {pos + 2}</span>
-              <select
+              {/* <select
                 className={styles.compareSelect}
                 value={baseFor(id)}
                 onChange={e => setBasesById(prev => ({ ...prev, [id]: e.target.value }))}
               >
                 {BASEMAP_IDS.map(k => <option key={k} value={k}>{BASEMAP_NAMES[k]}</option>)}
-              </select>
+              </select> */}
               <button className={styles.compareClose} onClick={() => onRemoveMap(id)} title={`Close map ${pos + 2}`} style={{ borderLeft: 'none', width: 22 }}>
                 &times;
               </button>

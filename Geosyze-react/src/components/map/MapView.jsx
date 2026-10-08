@@ -114,7 +114,7 @@ const MapView = forwardRef(function MapView({
 
     const map = new ol.Map({
       target: mapRef.current,
-      layers: [layers.osm, layers.satellite, layers.terrain, layers.light, layers.streets, layers.dark, layers.sentinel, vectorLayer, archivalAoiLayer],
+      layers: [layers.osm, layers.satellite, layers.terrain, layers.streets,layers.sentinel, vectorLayer, archivalAoiLayer],
       view: new ol.View({
         center: ol.proj.fromLonLat([78.9629, 20.5937]),
         zoom: 5,
