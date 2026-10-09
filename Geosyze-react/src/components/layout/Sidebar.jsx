@@ -26,7 +26,7 @@ const RAIL_ITEMS = [
   },
   {
     id: 'e2d', label: 'Earth to Date',
-    icon: <img src="/vendors/earthtodate.jpeg" className={styles.railLogo} alt="" />
+    icon: <img src="/vendors/earthtodate.svg" className={`${styles.railLogo} ${styles.railLogoInvert}`} alt="" />
   },
   {
     id: 'analytics', label: 'Analytics',
@@ -38,16 +38,16 @@ const RAIL_ITEMS = [
   },
   {
     id: 'blacksky', label: 'BlackSky',
-    icon: <img src="/vendors/blacksky.png" className={`${styles.railLogo} ${styles.railLogoInvert}`} alt="" />,
+    icon: <img src="/vendors/blacksky.svg" className={`${styles.railLogo} ${styles.railLogoInvert}`} alt="" />,
   },
   {
     id: 'earthdaily', label: 'Earth Daily',
     // icon: <svg {...ICON}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>,
-    icon: <img src="/vendors/earthdaily.jpeg" className={styles.railLogo} alt="" />
+    icon: <img src="/vendors/earthdaily.svg" className={styles.railLogo} alt="" />
   },
   {
     id: 'vantor', label: 'Vantor',
-    icon: <img src="/vendors/vantor.jpeg" className={styles.railLogo} alt="" />,
+    icon: <img src="/vendors/vantor.svg" className={`${styles.railLogo} ${styles.railLogoInvert}`} alt="" />,
   },
 ];
 

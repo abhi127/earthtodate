@@ -43,9 +43,11 @@
 }
 
 /* Vendor logos replace generic glyphs in the rail. Wordmarks are wide,
-   so they size by width and center. The currentColor SVG (Vantor) follows
-   the button color including the active state; the black PNG (BlackSky)
-   is inverted to read on the dark rail. */
+   so they size by width and center. Black-artwork SVGs (BlackSky,
+   Earth to Date, Vantor) are inverted to read on the dark rail and
+   rendered normally on the light rail; the multicolor EarthDaily logo
+   is untouched in both themes. The theme comes from the data-theme attr
+   on <html>, set by ThemeContext. */
 .railLogo {
   width: 24px;
   height: 24px;
@@ -53,6 +55,9 @@
 }
 .railLogoInvert {
   filter: invert(1);
+}
+:global([data-theme="light"]) .railLogoInvert {
+  filter: none;
 }
 
 /* ── Panel ──────────────────────────────────────────────────────────── */
