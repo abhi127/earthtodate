@@ -3,9 +3,8 @@ import TopBar from '../components/layout/TopBar';
 import Sidebar from '../components/layout/Sidebar';
 import MapView from '../components/map/MapView';
 import { canAddMap } from '../components/map/mapCount';
+import { resolvePanelSelect } from './panelSelect.js';
 import styles from './MapPage.module.css';
-
-const SAT_CATEGORY = { e2d: 'visual', ai: 'ai', analytics: 'analytics' };
 
 export default function MapPage() {
   const [activePanel, setActivePanel] = useState(null);
@@ -85,21 +84,18 @@ export default function MapPage() {
 
   // Earth to Date, AI and Analytics are the three satellite product categories.
   // They switch the satellite layer rather than opening a side panel; clicking
-  // the one that's already showing turns Earth to Date off.
+  // the one that's already showing turns Earth to Date off. Every other rail
+  // entry opens a side panel and turns the satellite panel off, so the two
+  // never stay open together.
   const handleSelectPanel = useCallback((id) => {
-    const cat = SAT_CATEGORY[id];
-    if (cat) {
-      if (satellitePanelOpen && satCategory === cat) {
-        setSatellitePanelOpen(false);
-        return;
-      }
-      setSatCategory(cat);
-      setSatellitePanelOpen(true);
-      setActivePanel(null);
-      return;
-    }
-    setActivePanel(p => (p === id ? null : id));
-  }, [satellitePanelOpen, satCategory]);
+    const next = resolvePanelSelect(
+      { activePanel, satelliteOpen: satellitePanelOpen, satCategory },
+      id
+    );
+    if (next.satCategory !== satCategory) setSatCategory(next.satCategory);
+    if (next.satelliteOpen !== satellitePanelOpen) setSatellitePanelOpen(next.satelliteOpen);
+    if (next.activePanel !== activePanel) setActivePanel(next.activePanel);
+  }, [activePanel, satellitePanelOpen, satCategory]);
 
   const handleSelectBasemap = useCallback((id) => {
     mapRef.current?.setBasemap(id);
