@@ -194,7 +194,7 @@ function computeViewtype({ product, sensor, spectral, soilSalinity, pollution, p
 
 const SENSOR_SPECTRAL_ONLY = new Set(['s2dr', 's2']);
 
-export default function SatellitePanel({ open, onViewtypeChange, right, narrow, category, onCategoryChange, getViewCenter, compareActive, onToggleCompare, relocateTick = 0 }) {
+export default function SatellitePanel({ open, onViewtypeChange, right, narrow, category, onCategoryChange, getViewCenter, compareActive, onToggleCompare, onAddMap, canAddMore, twoMaps, layoutMode, onLayoutChange, onCloseAll, relocateTick = 0 }) {
   const [product, setProduct] = useState('visual');
   const [sensor, setSensor] = useState(right ? 's2rr' : 's2');
   const [spectral, setSpectral] = useState('_ndvi');
@@ -410,6 +410,10 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
   const row1 = controls.slice(0, 3);
   const row2 = controls.slice(3);
 
+  // Compare controls merged up from the removed MapCompare bottom bar:
+  // second row, visible only while compare is active.
+  const showCompareRow = compareActive && (!!onAddMap || !!onLayoutChange || !!onCloseAll);
+
   return (
     <>
       <div className={`${styles.bar} ${right ? styles.barRight : ''} ${narrow ? styles.barNarrow : ''}`}>
@@ -419,6 +423,56 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
         {row2.length > 0 && (
           <div className={styles.row}>
             {row2.map(c => c.el)}
+          </div>
+        )}
+        {showCompareRow && (
+          <div className={styles.row}>
+            {onAddMap && canAddMore ? (
+              <button
+                type="button"
+                className={styles.modeBtn}
+                onClick={() => onAddMap?.()}
+                title="Add map"
+                aria-label="Add map"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              </button>
+            ) : null}
+            {onLayoutChange && twoMaps ? (
+              <>
+                <button
+                  type="button"
+                  className={`${styles.modeBtn} ${layoutMode !== 'swipe' ? styles.modeActive : ''}`}
+                  onClick={() => onLayoutChange('compare')}
+                  title="Side by side"
+                  aria-label="Side by side"
+                  aria-pressed={layoutMode !== 'swipe'}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1" /><rect x="14" y="3" width="7" height="18" rx="1" /></svg>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.modeBtn} ${layoutMode === 'swipe' ? styles.modeActive : ''}`}
+                  onClick={() => onLayoutChange('swipe')}
+                  title="Swipe"
+                  aria-label="Swipe"
+                  aria-pressed={layoutMode === 'swipe'}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="12" y1="3" x2="12" y2="21" /></svg>
+                </button>
+              </>
+            ) : null}
+            {onCloseAll ? (
+              <button
+                type="button"
+                className={styles.modeBtn}
+                onClick={() => onCloseAll?.()}
+                title="Close all extra maps"
+                aria-label="Close all extra maps"
+              >
+                &times;
+              </button>
+            ) : null}
           </div>
         )}
       </div>

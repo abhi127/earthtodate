@@ -9,7 +9,7 @@ import SatelliteLegend from './SatelliteLegend';
 import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
 import { SATELLITE_PANEL_START, SATELLITE_OPEN_RESOLUTION } from './satelliteDefaults';
 import { SATELLITE_MIN_ZOOM, SATELLITE_MAX_ZOOM, isSatelliteAllowed, disposeRequestContext, resolveR5mViewtype } from './satelliteLayers';
-import { resolveLayout } from './mapCount';
+import { resolveLayout, canAddMap } from './mapCount';
 import {Tile} from 'ol/layer'
 import { BASEMAP_IDS, BASEMAP_NAMES, createBasemapSource } from './basemaps';
 import styles from './MapView.module.css';
@@ -637,6 +637,12 @@ const MapView = forwardRef(function MapView({
           getViewCenter={getMainViewCenter}
           compareActive={hasExtras}
           onToggleCompare={handleCompareToggle}
+          onAddMap={onAddMap}
+          canAddMore={canAddMap(extraIds.length + 1)}
+          twoMaps={extraIds.length === 1}
+          layoutMode={layoutMode}
+          onLayoutChange={onLayoutChange}
+          onCloseAll={onRemoveAllExtras}
           relocateTick={searchTick}
         />
         {satellitePanelOpen && <SatelliteLegend viewtype={satelliteStateRef.current.viewtype} />}
@@ -662,11 +668,8 @@ const MapView = forwardRef(function MapView({
         <MapCompare
           map={mapInstance.current}
           extraIds={extraIds ?? []}
-          onAddMap={onAddMap}
           onRemoveMap={onRemoveMap}
-          onRemoveAllExtras={onRemoveAllExtras}
           layoutMode={layoutMode}
-          onLayoutChange={onLayoutChange}
           basemapRefs={basemapRefs.current}
           activeBasemap={activeBasemap}
           onExtraMapsReady={handleExtraMapsReady}

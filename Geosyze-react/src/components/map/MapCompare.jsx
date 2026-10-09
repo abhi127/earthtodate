@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
-import { MAX_MAPS, canAddMap } from './mapCount';
 import { BASEMAP_NAMES, BASEMAP_IDS, createBasemapSource } from './basemaps';
 import styles from './MapView.module.css';
 
@@ -49,14 +48,14 @@ function swapLayer(mapInstance, oldLayer, newId, label, onSwapped) {
 // Extra maps are keyed by stable ids from the parent so add/remove of any
 // map (not just the last) keeps instances, basemaps and satellite layers
 // mapped to the right view. The main map (index 0) is never closable.
+// Compare actions (add / side-by-side / swipe / close-all) live in the
+// first map's SatellitePanel bar; this component renders only the extra
+// map cells with their close buttons plus the swipe divider.
 export default function MapCompare({
   map,
   extraIds,
-  onAddMap,
   onRemoveMap,
-  onRemoveAllExtras,
   layoutMode,
-  onLayoutChange,
   basemapRefs,
   activeBasemap,
   onExtraMapsReady,
@@ -313,51 +312,6 @@ export default function MapCompare({
           </div>
         </div>
       )}
-      <div className={styles.comparePanel}>
-        <div className={styles.comparePicker}>
-          <span className={styles.compareLabel}>Map 1</span>
-          {/* <select className={styles.compareSelect} value={leftBase} onChange={e => setLeftBase(e.target.value)}>
-            {BASEMAP_IDS.map(k => <option key={k} value={k}>{BASEMAP_NAMES[k]}</option>)}
-          </select> */}
-        </div>
-        {extraIds.map((id, pos) => (
-          <div key={id} style={{ display: 'contents' }}>
-            <div className={styles.compareDividerV} />
-            <div className={styles.comparePicker}>
-              <span className={styles.compareLabel}>Map {pos + 2}</span>
-              {/* <select
-                className={styles.compareSelect}
-                value={baseFor(id)}
-                onChange={e => setBasesById(prev => ({ ...prev, [id]: e.target.value }))}
-              >
-                {BASEMAP_IDS.map(k => <option key={k} value={k}>{BASEMAP_NAMES[k]}</option>)}
-              </select> */}
-              <button className={styles.compareClose} onClick={() => onRemoveMap(id)} title={`Close map ${pos + 2}`} style={{ borderLeft: 'none', width: 22 }}>
-                &times;
-              </button>
-            </div>
-          </div>
-        ))}
-        <div className={styles.compareDividerV} />
-        <div className={styles.compareModeBtns}>
-          {canAddMap(extraIds.length + 1) ? (
-            <button className={styles.compareModeBtn} onClick={onAddMap} title={`Add map (${extraIds.length + 1}/${MAX_MAPS})`}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-            </button>
-          ) : null}
-          {twoMaps && (
-            <>
-              <button className={`${styles.compareModeBtn} ${layoutMode !== 'swipe' ? styles.compareModeActive : ''}`} onClick={() => onLayoutChange('compare')} title="Side by side">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1" /><rect x="14" y="3" width="7" height="18" rx="1" /></svg>
-              </button>
-              <button className={`${styles.compareModeBtn} ${layoutMode === 'swipe' ? styles.compareModeActive : ''}`} onClick={() => onLayoutChange('swipe')} title="Swipe">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="12" y1="3" x2="12" y2="21" /></svg>
-              </button>
-            </>
-          )}
-        </div>
-        <button className={styles.compareClose} onClick={onRemoveAllExtras} title="Close all extra maps">&times;</button>
-      </div>
     </>
   );
 }
