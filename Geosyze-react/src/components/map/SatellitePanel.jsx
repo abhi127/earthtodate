@@ -426,7 +426,7 @@ export default function SatellitePanel({ open, onViewtypeChange, right, narrow, 
           </div>
         )}
         {showCompareRow && (
-          <div className={styles.row}>
+          <div className={`${styles.row} ${styles.compareRow}`}>
             {onAddMap && canAddMore ? (
               <button
                 type="button"

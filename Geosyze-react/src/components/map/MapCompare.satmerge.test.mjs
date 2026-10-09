@@ -42,4 +42,12 @@ const cmpTag = view.slice(cmpIdx, cmpEnd);
 assert.ok(!cmpTag.includes('onRemoveAllExtras'), '<MapCompare> must not receive onRemoveAllExtras');
 assert.ok(!cmpTag.includes('onLayoutChange'), '<MapCompare> must not receive onLayoutChange');
 
+// Compare-row spacing: the merged row uses a dedicated class (with a
+// divider separating it from the satellite controls), and the shared row
+// class gives buttons a consistent flex gap instead of JSX whitespace.
+const css = fs.readFileSync(path.join(dir, 'SatellitePanel.module.css'), 'utf8');
+assert.ok(panel.includes('compareRow'), 'compare row must use the compareRow class');
+assert.ok(css.includes('.compareRow'), 'CSS must define .compareRow');
+assert.ok(css.includes('.row'), 'CSS must define .row');
+
 console.log('satmerge compare: OK');

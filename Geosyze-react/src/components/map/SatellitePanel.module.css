@@ -133,6 +133,25 @@
   background: rgba(34, 197, 94, 0.1) !important;
 }
 
+/* Control rows inside the bar: consistent flex gap between buttons instead
+   of JSX-whitespace spacing. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Merged compare row: same row spacing plus a divider separating the
+   add/layout/close group from the satellite controls beside it. */
+.compareRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-left: 1px solid var(--border, #334155);
+  padding-left: 0.5rem;
+  margin-left: 0.15rem;
+}
+
 /* Toggle button in the controls panel */
 .toggleBtn {
   display: flex;
