@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { loadIndiaCompositeLayer } from './indiaCompositeLayer';
+import { defaultExtraBasemap } from './compareBasemap';
 import { BASEMAP_NAMES, BASEMAP_IDS, createBasemapSource } from './basemaps';
 import styles from './MapView.module.css';
 
@@ -77,11 +78,8 @@ export default function MapCompare({
   const hasExtras = extraIds.length > 0;
   const twoMaps = extraIds.length === 1;
 
-  const defaultBaseFor = useCallback((id) => {
-    const pos = Math.max(0, extraIdsRef.current.indexOf(id));
-    const anchor = activeBasemap || 'osm';
-    return BASEMAP_IDS[(BASEMAP_IDS.indexOf(anchor) + pos + 1) % BASEMAP_IDS.length];
-  }, [activeBasemap]);
+  // Extra maps always open on OSM — no rotation from the main basemap.
+  const defaultBaseFor = useCallback(() => defaultExtraBasemap(), []);
 
   const baseFor = useCallback((id) => basesById[id] || defaultBaseFor(id), [basesById, defaultBaseFor]);
 
